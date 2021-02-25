@@ -5,7 +5,4 @@ authors = ["Zach Shipko <zachshipko@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-#ocaml = "*"
-
-# Or use the development version:
-ocaml = {git = "git://github.com/zshipko/ocaml-rs", branch="interop2", features=["link"]}
+ocaml-interop = "0.5"

@@ -42,6 +42,11 @@ module OCaml = struct
     let mem store key =
       let key = Irmin.Type.of_string Store.key_t key |> Result.get_ok in
       Lwt_main.run (store >>= fun store -> Store.mem store key)
+
+    let remove store key message =
+      let info = Irmin_unix.info "%s" message in
+      let key = Irmin.Type.of_string Store.key_t key |> Result.get_ok in
+      Lwt_main.run (store >>= fun store -> Store.remove store key ~info)
   end
 
   type f = Function : 'a -> f
@@ -54,6 +59,7 @@ module OCaml = struct
       ("store_find", Function Store.find);
       ("store_set", Function Store.set);
       ("store_mem", Function Store.mem);
+      ("store_remove", Function Store.remove);
     ]
 end
 
