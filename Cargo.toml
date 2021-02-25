@@ -1,14 +1,11 @@
 [package]
-name = "ocaml-rust-starter"
+name = "irmin"
 version = "0.1.0"
 authors = ["Zach Shipko <zachshipko@gmail.com>"]
 edition = "2018"
 
-[lib]
-crate-type = ["staticlib", "cdylib"]
-
 [dependencies]
-ocaml = "*"
+#ocaml = "*"
 
 # Or use the development version:
-# ocaml = {git = "git://github.com/zshipko/ocaml-rs"}
+ocaml = {git = "git://github.com/zshipko/ocaml-rs", branch="interop2", features=["link"]}

@@ -1,3 +1,3 @@
 (lang dune 2.0)
 
-(name ocaml-rust-starter)
+(name irmin)

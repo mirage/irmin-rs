@@ -1,17 +1,6 @@
-(rule
- (targets libocaml_rust_starter.a dllocaml_rust_starter.so)
- (deps (glob_files *.rs))
- (action
-  (progn
-   (run cargo build --target-dir %{project_root}/../../target --release)
-   (run sh -c
-     "mv %{project_root}/../../target/release/libocaml_rust_starter.so ./dllocaml_rust_starter.so 2> /dev/null || \
-      mv %{project_root}/../..target/release/libocaml_rust_starter.dylib ./dllocaml_rust_starter.so")
-   (run mv %{project_root}/../../target/release/libocaml_rust_starter.a libocaml_rust_starter.a))))
-
-(library
- (name ocaml_rust_starter)
- (public_name ocaml-rust-starter)
- (foreign_archives ocaml_rust_starter)
- (c_library_flags
-  (-lpthread -lc -lm)))
+(executable
+ (modes (native shared_object))
+ (modules irmin_rs)
+ (name irmin_rs)
+ (link_flags (:standard -linkall)) ; -ccopt -lrt -ccopt -lpthread -ccopt -lgmp))
+ (libraries irmin-unix))
