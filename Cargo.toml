@@ -5,12 +5,15 @@ authors = ["Zach Shipko <zachshipko@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-irmin-type-derive = {path = "./derive"}
+irmin-type-derive = {path = "./derive", version = "0.1"}
 ocaml-interop = {version = "0.7", optional = true}
+tokio = {version = "1", optional = true, features = ["net", "io-util", "macros", "rt"]}
+futures = {version = "0.3", optional = true}
 
 [features]
-default = ["bindings"]
+default = ["bindings", "client"]
 bindings = ["ocaml-interop"]
+client = ["tokio", "futures"]
 
 [workspace]
 members = [

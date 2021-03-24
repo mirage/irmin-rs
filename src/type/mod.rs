@@ -58,6 +58,17 @@ fn decode_int<R: std::io::Read>(mut src: R) -> std::io::Result<Int> {
     aux buf 0 0 ofs */
 }
 
+impl Type for bool {
+    fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
+        (if *self { 255 } else { 0 }).encode_bin(dest)
+    }
+
+    fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
+        let x = u8::decode_bin(src)?;
+        Ok(if x == 0 { false } else { true })
+    }
+}
+
 impl Type for isize {
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         encode_int(*self as i64, dest)
