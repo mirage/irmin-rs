@@ -38,7 +38,7 @@ fn decode_int<R: std::io::Read>(mut src: R) -> std::io::Result<Int> {
         let i = u8::decode_bin(&mut src)? as i64;
         n = n + ((i & 127) << p);
         if i >= 0 && i < 128 {
-            return Ok(Int(i));
+            return Ok(Int(n));
         } else {
             p += 7;
         }
@@ -282,7 +282,10 @@ mod tests {
         let data = include_bytes!("../../tests/int_string_pair.txt");
         let mut output = Vec::new();
         a.encode_bin(&mut output).unwrap();
-        assert_eq!(output.as_slice(), data)
+        assert_eq!(output.as_slice(), data);
+
+        let t: (isize, String) = Type::decode_bin(output.as_slice()).unwrap();
+        assert_eq!(a, t);
     }
 
     #[test]
@@ -293,12 +296,15 @@ mod tests {
         let data = include_bytes!("../../tests/int_long_string_pair.txt");
         let mut output = Vec::new();
         a.encode_bin(&mut output).unwrap();
-        assert_eq!(output.as_slice(), data)
+        assert_eq!(output.as_slice(), data);
+
+        let t: (isize, String) = Type::decode_bin(output.as_slice()).unwrap();
+        assert_eq!(a, t);
     }
 
     #[test]
     fn test_struct1() {
-        #[derive(Type)]
+        #[derive(Type, Debug, PartialEq)]
         struct Test {
             a: isize,
             b: Vec<String>,
@@ -311,12 +317,15 @@ mod tests {
         let data = include_bytes!("../../tests/struct1.txt");
         let mut output = Vec::new();
         s.encode_bin(&mut output).unwrap();
-        assert_eq!(output.as_slice(), data)
+        assert_eq!(output.as_slice(), data);
+
+        let t: Test = Type::decode_bin(output.as_slice()).unwrap();
+        assert_eq!(s, t);
     }
 
     #[test]
     fn test_enum1() {
-        #[derive(Type)]
+        #[derive(Type, Debug, PartialEq)]
         enum Test {
             A(f64),
             B(Option<String>),
@@ -326,6 +335,9 @@ mod tests {
         let data = include_bytes!("../../tests/enum1.txt");
         let mut output = Vec::new();
         s.encode_bin(&mut output).unwrap();
-        assert_eq!(output.as_slice(), data)
+        assert_eq!(output.as_slice(), data);
+
+        let t: (Test, Test) = Type::decode_bin(output.as_slice()).unwrap();
+        assert_eq!(s, t);
     }
 }
