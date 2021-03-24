@@ -219,6 +219,7 @@ impl<'a> Store<'a> {
 #[cfg(test)]
 mod tests {
     use crate::client::*;
+    use crate::Bytes;
 
     fn skip() -> std::io::Result<()> {
         eprintln!("Skipping client test: client not connected, perhaps the server isn't running?");
@@ -235,7 +236,9 @@ mod tests {
         let key = Key::new(&["a", "b", "c", "d"]);
         let info = Info::new();
         let store = client.store();
-        store.set(&key, "testing", &info).await?;
+        store
+            .set(&key, Bytes::from("testing".as_bytes()), &info)
+            .await?;
         let s: Option<String> = store.find(&key).await?;
         assert_eq!(s, Some("testing".to_string()));
         client.close().await?;

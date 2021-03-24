@@ -1,11 +1,8 @@
+mod types;
+
+pub use types::*;
+
 pub use irmin_type_derive::IrminType as Type;
-
-pub type Int = isize;
-
-pub type Pair<T, U> = (T, U);
-pub type Triple<T, U, V> = (T, U, V);
-pub type Bytes = Vec<u8>;
-pub type Array<T> = Vec<T>;
 
 pub trait Type: Sized {
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize>;
@@ -188,11 +185,8 @@ impl Type for f64 {
 }
 
 impl Type for String {
-    fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
-        let i = self.len();
-        let n = i.encode_bin(&mut dest)?;
-        dest.write_all(self.as_bytes())?;
-        Ok(n + i)
+    fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
+        Str::Ref(self.as_ref()).encode_bin(dest)
     }
 
     fn decode_bin<R: std::io::Read>(mut src: R) -> std::io::Result<String> {
@@ -209,15 +203,9 @@ impl Type for String {
     }
 }
 
-impl<T: Type> Type for Array<T> {
-    fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
-        let i = self.len();
-        i.encode_bin(&mut dest)?;
-        let mut n = 0;
-        for x in self.iter() {
-            n += x.encode_bin(&mut dest)?;
-        }
-        Ok(n)
+impl<T: Type> Type for Vec<T> {
+    fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
+        Array::Ref(self.as_ref()).encode_bin(dest)
     }
 
     fn decode_bin<R: std::io::Read>(mut src: R) -> std::io::Result<Vec<T>> {
@@ -309,6 +297,51 @@ impl Type for &str {
             std::io::ErrorKind::InvalidData,
             "Cannot decode into a str reference",
         ))
+    }
+}
+
+impl<'a, T: Type> Type for Array<'a, T> {
+    fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
+        let i = self.len();
+        i.encode_bin(&mut dest)?;
+        let mut n = 0;
+        for x in self.as_ref().iter() {
+            n += x.encode_bin(&mut dest)?;
+        }
+        Ok(n)
+    }
+
+    fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
+        let x = Vec::<T>::decode_bin(src)?;
+        Ok(Array::Owned(x))
+    }
+}
+
+impl<'a> Type for Str<'a> {
+    fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
+        let i = self.len();
+        let n = i.encode_bin(&mut dest)?;
+        dest.write_all(self.as_ref().as_bytes())?;
+        Ok(n + i)
+    }
+
+    fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
+        let x = String::decode_bin(src)?;
+        Ok(Str::Owned(x))
+    }
+}
+
+impl<'a> Type for Bytes<'a> {
+    fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
+        let i = self.as_ref().len();
+        let n = i.encode_bin(&mut dest)?;
+        dest.write_all(self.as_ref())?;
+        Ok(n + i)
+    }
+
+    fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
+        let x = Vec::<u8>::decode_bin(src)?;
+        Ok(Bytes::Owned(x))
     }
 }
 
