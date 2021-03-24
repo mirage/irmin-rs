@@ -10,6 +10,10 @@ pub struct Client {
     conn: RefCell<BufStream<TcpStream>>,
 }
 
+pub struct Store<'a> {
+    client: &'a Client,
+}
+
 const V1: &str = "V1\n";
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -195,14 +199,20 @@ impl Client {
         Ok(())
     }
 
+    pub fn store<'a>(&'a self) -> Store<'a> {
+        Store { client: self }
+    }
+}
+
+impl<'a> Store<'a> {
     pub async fn set<T: Type>(&self, key: &Key, value: T, info: &Info) -> std::io::Result<()> {
-        self.request("store.set", (key, info, value)).await?;
-        self.response::<()>().await
+        self.client.request("store.set", (key, info, value)).await?;
+        self.client.response::<()>().await
     }
 
     pub async fn find<T: Type>(&self, key: &Key) -> std::io::Result<Option<T>> {
-        self.request("store.find", key).await?;
-        self.response::<Option<T>>().await
+        self.client.request("store.find", key).await?;
+        self.client.response::<Option<T>>().await
     }
 }
 
@@ -224,8 +234,9 @@ mod tests {
         client.ping().await?;
         let key = Key::new(&["a", "b", "c", "d"]);
         let info = Info::new();
-        client.set(&key, "testing", &info).await?;
-        let s: Option<String> = client.find(&key).await?;
+        let store = client.store();
+        store.set(&key, "testing", &info).await?;
+        let s: Option<String> = store.find(&key).await?;
         assert_eq!(s, Some("testing".to_string()));
         client.close().await?;
         Ok(())
