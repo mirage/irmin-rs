@@ -5,4 +5,14 @@ authors = ["Zach Shipko <zachshipko@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-ocaml-interop = "0.5"
+irmin-type-derive = {path = "./derive"}
+ocaml-interop = {version = "0.7", optional = true}
+
+[features]
+default = ["bindings"]
+bindings = ["ocaml-interop"]
+
+[workspace]
+members = [
+  "derive"
+]

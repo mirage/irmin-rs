@@ -1,0 +1,15 @@
+[package]
+name = "irmin-type-derive"
+version = "0.1.0"
+authors = ["zach shipko <zachshipko@gmail.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+
+[dependencies]
+synstructure = {version = "0.12"}
+syn = {version = "1", features = ["full"]}
+proc-macro2 = {version = "1"}
+quote = "1"
