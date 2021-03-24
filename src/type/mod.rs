@@ -283,6 +283,35 @@ impl<T: Type> Type for Option<T> {
     }
 }
 
+impl<T: Type> Type for &T {
+    fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
+        (*self).encode_bin(dest)
+    }
+
+    fn decode_bin<R: std::io::Read>(_src: R) -> std::io::Result<Self> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Cannot decode into a reference",
+        ))
+    }
+}
+
+impl Type for &str {
+    fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
+        let i = self.len();
+        let n = i.encode_bin(&mut dest)?;
+        dest.write_all(self.as_bytes())?;
+        Ok(n + i)
+    }
+
+    fn decode_bin<R: std::io::Read>(_src: R) -> std::io::Result<Self> {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Cannot decode into a str reference",
+        ))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Type;

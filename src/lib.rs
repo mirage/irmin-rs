@@ -6,3 +6,7 @@ pub mod client;
 
 mod r#type;
 pub use r#type::*;
+
+pub(crate) mod irmin {
+    pub use crate::*;
+}
