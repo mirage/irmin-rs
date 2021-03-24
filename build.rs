@@ -1,7 +1,8 @@
-use std::env;
-use std::process::Command;
+#[allow(unused)]
+fn link() {
+    use std::env;
+    use std::process::Command;
 
-fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let dune_dir = "_build/default/src";
     assert!(Command::new("dune")
@@ -39,4 +40,9 @@ fn main() {
 
     println!("cargo:rustc-link-search=.");
     println!("cargo:rustc-link-lib=irmin_rs");
+}
+
+fn main() {
+    #[cfg(feature = "bindings")]
+    link()
 }
