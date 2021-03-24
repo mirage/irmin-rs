@@ -1,3 +1,3 @@
 # irmin-rs
 
-Rust bindings for [Irmin](https://github.com/mirage/irmin)
+A Rust crate for interfacing with [Irmin](https://github.com/mirage/irmin)
