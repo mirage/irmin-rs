@@ -1,6 +1,11 @@
 pub use irmin_type_derive::IrminType as Type;
 
-struct Int(i64);
+pub type Int = isize;
+
+pub type Pair<T, U> = (T, U);
+pub type Triple<T, U, V> = (T, U, V);
+pub type Bytes = Vec<u8>;
+pub type Array<T> = Vec<T>;
 
 pub trait Type: Sized {
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize>;
@@ -38,7 +43,7 @@ fn decode_int<R: std::io::Read>(mut src: R) -> std::io::Result<Int> {
         let i = u8::decode_bin(&mut src)? as i64;
         n = n + ((i & 127) << p);
         if i >= 0 && i < 128 {
-            return Ok(Int(n));
+            return Ok(n as Int);
         } else {
             p += 7;
         }
@@ -59,40 +64,39 @@ impl Type for isize {
     }
 
     fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
-        decode_int(src).map(|x| x.0 as isize)
+        decode_int(src).map(|x| x as isize)
     }
 }
 
-impl Type for Int {
+impl Type for usize {
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
-        let n = self.0;
-        encode_int(n, dest)
+        encode_int(*self as i64, dest)
     }
 
     fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
-        decode_int(src)
+        decode_int(src).map(|x| x as usize)
     }
 }
 
 impl Type for i32 {
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
-        encode_int(*self as i64, dest)
+        (*self as u32).encode_bin(dest)
     }
 
     fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
-        let Int(x) = decode_int(src)?;
-        Ok(x as i32)
+        let n = u32::decode_bin(src)?;
+        Ok(n as i32)
     }
 }
 
 impl Type for i64 {
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
-        encode_int(*self as i64, dest)
+        (*self as u64).encode_bin(dest)
     }
 
     fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
-        let Int(x) = decode_int(src)?;
-        Ok(x as i64)
+        let n = u64::decode_bin(src)?;
+        Ok(n as i64)
     }
 }
 
@@ -174,15 +178,15 @@ impl Type for f64 {
 
 impl Type for String {
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
-        let i = self.len() as i64;
-        let n = Int(i).encode_bin(&mut dest)?;
+        let i = self.len();
+        let n = i.encode_bin(&mut dest)?;
         dest.write_all(self.as_bytes())?;
-        Ok(n + self.len())
+        Ok(n + i)
     }
 
     fn decode_bin<R: std::io::Read>(mut src: R) -> std::io::Result<String> {
         let i = decode_int(&mut src)?;
-        let mut x = vec![0u8; i.0 as usize];
+        let mut x = vec![0u8; i as usize];
         src.read_exact(&mut x)?;
         match String::from_utf8(x) {
             Ok(x) => Ok(x),
@@ -194,10 +198,10 @@ impl Type for String {
     }
 }
 
-impl<T: Type> Type for Vec<T> {
+impl<T: Type> Type for Array<T> {
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
-        let i = self.len() as i64;
-        Int(i).encode_bin(&mut dest)?;
+        let i = self.len();
+        i.encode_bin(&mut dest)?;
         let mut n = 0;
         for x in self.iter() {
             n += x.encode_bin(&mut dest)?;
@@ -209,7 +213,7 @@ impl<T: Type> Type for Vec<T> {
         let i = decode_int(&mut src)?;
         let mut dest = Vec::new();
 
-        for _ in 0..i.0 as usize {
+        for _ in 0..i as usize {
             dest.push(T::decode_bin(&mut src)?)
         }
 
@@ -217,7 +221,7 @@ impl<T: Type> Type for Vec<T> {
     }
 }
 
-impl<T: Type, U: Type> Type for (T, U) {
+impl<T: Type, U: Type> Type for Pair<T, U> {
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let mut n = self.0.encode_bin(&mut dest)?;
         n += self.1.encode_bin(&mut dest)?;
@@ -231,7 +235,7 @@ impl<T: Type, U: Type> Type for (T, U) {
     }
 }
 
-impl<T: Type, U: Type, V: Type> Type for (T, U, V) {
+impl<T: Type, U: Type, V: Type> Type for Triple<T, U, V> {
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let mut n = self.0.encode_bin(&mut dest)?;
         n += self.1.encode_bin(&mut dest)?;
@@ -279,7 +283,7 @@ mod tests {
     #[test]
     fn test_int_string_pair() {
         let a = (123isize, "abc".to_string());
-        let data = include_bytes!("../../tests/int_string_pair.txt");
+        let data = include_bytes!("../../tests/int_string_pair.bin");
         let mut output = Vec::new();
         a.encode_bin(&mut output).unwrap();
         assert_eq!(output.as_slice(), data);
@@ -293,7 +297,7 @@ mod tests {
         let s = [b'A'; 4096];
         let s = unsafe { std::str::from_utf8_unchecked(&s) };
         let a = (500isize, s.to_string());
-        let data = include_bytes!("../../tests/int_long_string_pair.txt");
+        let data = include_bytes!("../../tests/int_long_string_pair.bin");
         let mut output = Vec::new();
         a.encode_bin(&mut output).unwrap();
         assert_eq!(output.as_slice(), data);
@@ -314,7 +318,7 @@ mod tests {
             a: 999,
             b: vec!["B".to_string(); 16],
         };
-        let data = include_bytes!("../../tests/struct1.txt");
+        let data = include_bytes!("../../tests/struct1.bin");
         let mut output = Vec::new();
         s.encode_bin(&mut output).unwrap();
         assert_eq!(output.as_slice(), data);
@@ -332,7 +336,7 @@ mod tests {
         }
 
         let s = (Test::A(4.5), Test::B(None));
-        let data = include_bytes!("../../tests/enum1.txt");
+        let data = include_bytes!("../../tests/enum1.bin");
         let mut output = Vec::new();
         s.encode_bin(&mut output).unwrap();
         assert_eq!(output.as_slice(), data);
