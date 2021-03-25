@@ -1,6 +1,15 @@
-mod types;
+mod array;
+mod bytes;
+mod string;
 
-pub use types::*;
+pub type Int = isize;
+
+pub type Pair<T, U> = (T, U);
+pub type Triple<T, U, V> = (T, U, V);
+
+pub use array::Array;
+pub use bytes::Bytes;
+pub use string::Str;
 
 pub use irmin_type_derive::IrminType as Type;
 
@@ -8,6 +17,10 @@ pub trait Type: Sized {
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize>;
 
     fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self>;
+}
+
+pub trait Fixed {
+    const SIZE: usize;
 }
 
 fn encode_int<W: std::io::Write>(mut n: i64, mut dest: W) -> std::io::Result<usize> {

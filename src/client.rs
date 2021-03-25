@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use tokio::io::*;
 use tokio::net::{TcpStream, ToSocketAddrs, UnixStream};
 
-use crate::{irmin, Type};
+use crate::{Commit, Info, Key, Type};
 
 pub type Tcp = TcpStream;
 pub type Unix = UnixStream;
@@ -16,94 +16,14 @@ pub struct Store<'a, Socket> {
     client: &'a Client<Socket>,
 }
 
-const V1: &str = "V1\n";
-
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct Key(Vec<String>);
-
-impl Type for Key {
-    fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
-        self.0.encode_bin(dest)
-    }
-
-    fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
-        let x = Vec::<String>::decode_bin(src)?;
-        Ok(Key(x))
-    }
-}
-
-impl Key {
-    pub fn new<'a>(a: impl AsRef<[&'a str]>) -> Key {
-        Key(a
-            .as_ref()
-            .iter()
-            .filter_map(|x| {
-                if x.is_empty() {
-                    None
-                } else {
-                    Some(x.to_string())
-                }
-            })
-            .collect())
-    }
-
-    pub fn push(&mut self, p: impl Into<String>) {
-        let p = p.into();
-        if !p.is_empty() {
-            self.0.push(p.into())
-        }
-    }
-
-    pub fn pop(&mut self) -> Option<String> {
-        self.0.pop()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, PartialOrd, Type)]
-pub struct Info {
-    date: i64,
-    author: String,
-    message: String,
-}
-
-impl Info {
-    pub fn new() -> Info {
-        let now = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH);
-        let date = match now {
-            Ok(x) => x.as_secs(),
-            Err(_) => 0,
-        };
-
-        Info {
-            date: date as i64,
-            author: String::from("irmin-rs"),
-            message: String::new(),
-        }
-    }
-
-    pub fn with_message(mut self, message: impl Into<String>) -> Self {
-        self.message = message.into();
-        self
-    }
-
-    pub fn with_author(mut self, author: impl Into<String>) -> Self {
-        self.author = author.into();
-        self
-    }
+mod handshake {
+    pub const V1: &str = "V1\n";
 }
 
 impl<Socket: Unpin + AsyncRead + AsyncWrite> Client<Socket> {
     async fn write_handshake(&self) -> std::io::Result<()> {
         let mut conn = self.conn.borrow_mut();
-        conn.write_all(V1.as_bytes()).await?;
+        conn.write_all(handshake::V1.as_bytes()).await?;
         conn.flush().await?;
         Ok(())
     }
@@ -112,7 +32,7 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite> Client<Socket> {
         let mut conn = self.conn.borrow_mut();
         let mut line = String::new();
         conn.read_line(&mut line).await?;
-        Ok(line == V1)
+        Ok(line == handshake::V1)
     }
 
     async fn do_handshake(&self) -> std::io::Result<()> {
@@ -210,7 +130,7 @@ impl Client<UnixStream> {
 }
 
 impl<'a, Socket: Unpin + AsyncRead + AsyncWrite> Store<'a, Socket> {
-    pub async fn set<T: Type>(&self, key: &Key, value: T, info: &Info) -> std::io::Result<()> {
+    pub async fn set<T: Type>(&self, key: &Key, value: T, info: Info) -> std::io::Result<()> {
         self.client.request("store.set", (key, info, value)).await?;
         self.client.response::<()>().await
     }
@@ -218,6 +138,29 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite> Store<'a, Socket> {
     pub async fn find<T: Type>(&self, key: &Key) -> std::io::Result<Option<T>> {
         self.client.request("store.find", key).await?;
         self.client.response::<Option<T>>().await
+    }
+
+    pub async fn remove(&self, key: &Key, info: Info) -> std::io::Result<()> {
+        self.client.request("store.remove", (key, info)).await?;
+        self.client.response::<()>().await
+    }
+}
+/*val create :
+t ->
+info:Irmin.Info.f ->
+parents:hash list ->
+tree ->
+commit Error.result Lwt.t*/
+impl<Hash: Type + Clone> Commit<Hash> {
+    pub async fn create<Socket: Unpin + AsyncRead + AsyncWrite>(
+        client: Client<Socket>,
+        node: Hash,
+        parents: impl Into<Vec<Hash>>,
+        info: Info,
+    ) -> std::io::Result<Commit<Hash>> {
+        let parents = parents.into();
+        client.request("new_commit", (info, parents, node)).await?;
+        client.response::<Commit<Hash>>().await
     }
 }
 
@@ -238,14 +181,14 @@ mod tests {
             Err(_) => return skip(),
         };
         client.ping().await?;
-        let key = Key::new(&["a", "b", "c", "d"]);
-        let info = Info::new();
+        let key = Key::new(["a", "b", "c", "d"]);
         let store = client.store();
         store
-            .set(&key, Bytes::from("testing".as_bytes()), &info)
+            .set(&key, Bytes::from("testing".as_bytes()), Info::new())
             .await?;
         let s: Option<String> = store.find(&key).await?;
         assert_eq!(s, Some("testing".to_string()));
+        store.remove(&key, Info::new()).await?;
         client.close().await?;
         Ok(())
     }
