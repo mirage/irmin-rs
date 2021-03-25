@@ -1,17 +1,19 @@
 use std::cell::RefCell;
 
 use tokio::io::*;
-use tokio::net::{TcpStream, ToSocketAddrs};
+use tokio::net::{TcpStream, ToSocketAddrs, UnixStream};
 
 use crate::{irmin, Type};
 
-pub struct Client {
-    addr: std::net::SocketAddr,
-    conn: RefCell<BufStream<TcpStream>>,
+pub type Tcp = TcpStream;
+pub type Unix = UnixStream;
+
+pub struct Client<Socket> {
+    conn: RefCell<BufStream<Socket>>,
 }
 
-pub struct Store<'a> {
-    client: &'a Client,
+pub struct Store<'a, Socket> {
+    client: &'a Client<Socket>,
 }
 
 const V1: &str = "V1\n";
@@ -98,7 +100,7 @@ impl Info {
     }
 }
 
-impl Client {
+impl<Socket: Unpin + AsyncRead + AsyncWrite> Client<Socket> {
     async fn write_handshake(&self) -> std::io::Result<()> {
         let mut conn = self.conn.borrow_mut();
         conn.write_all(V1.as_bytes()).await?;
@@ -125,23 +127,6 @@ impl Client {
         Ok(())
     }
 
-    pub async fn new(s: impl ToSocketAddrs) -> std::io::Result<Client> {
-        let conn = TcpStream::connect(s).await?;
-        let addr = conn.peer_addr()?;
-        let conn = RefCell::new(BufStream::new(conn));
-        let client = Client { conn, addr };
-        client.do_handshake().await?;
-        Ok(client)
-    }
-
-    pub async fn reconnect(&mut self) -> std::io::Result<()> {
-        let conn = TcpStream::connect(&self.addr).await?;
-        let conn = RefCell::new(BufStream::new(conn));
-        self.conn = conn;
-        self.do_handshake().await?;
-        Ok(())
-    }
-
     pub async fn close(self) -> std::io::Result<()> {
         self.conn.into_inner().shutdown().await?;
         Ok(())
@@ -149,7 +134,7 @@ impl Client {
 
     async fn write_message(
         &self,
-        conn: &mut BufStream<TcpStream>,
+        conn: &mut BufStream<Socket>,
         msg: impl Type,
     ) -> std::io::Result<()> {
         let mut data = Vec::new();
@@ -162,7 +147,7 @@ impl Client {
         Ok(())
     }
 
-    async fn read_message<T: Type>(&self, conn: &mut BufStream<TcpStream>) -> std::io::Result<T> {
+    async fn read_message<T: Type>(&self, conn: &mut BufStream<Socket>) -> std::io::Result<T> {
         let mut len_buf = [0u8; 8];
         conn.read_exact(&mut len_buf).await?;
         let len = i64::from_be_bytes(len_buf);
@@ -199,12 +184,32 @@ impl Client {
         Ok(())
     }
 
-    pub fn store<'a>(&'a self) -> Store<'a> {
+    pub fn store<'a>(&'a self) -> Store<'a, Socket> {
         Store { client: self }
     }
 }
 
-impl<'a> Store<'a> {
+impl Client<TcpStream> {
+    pub async fn new(s: impl ToSocketAddrs) -> std::io::Result<Client<TcpStream>> {
+        let conn = TcpStream::connect(s).await?;
+        let conn = RefCell::new(BufStream::new(conn));
+        let client = Client { conn };
+        client.do_handshake().await?;
+        Ok(client)
+    }
+}
+
+impl Client<UnixStream> {
+    pub async fn new(s: impl AsRef<std::path::Path>) -> std::io::Result<Client<UnixStream>> {
+        let conn = UnixStream::connect(s).await?;
+        let conn = RefCell::new(BufStream::new(conn));
+        let client = Client { conn };
+        client.do_handshake().await?;
+        Ok(client)
+    }
+}
+
+impl<'a, Socket: Unpin + AsyncRead + AsyncWrite> Store<'a, Socket> {
     pub async fn set<T: Type>(&self, key: &Key, value: T, info: &Info) -> std::io::Result<()> {
         self.client.request("store.set", (key, info, value)).await?;
         self.client.response::<()>().await
@@ -228,7 +233,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() -> std::io::Result<()> {
-        let client = match Client::new("127.0.0.1:8888").await {
+        let client = match Client::<Tcp>::new("127.0.0.1:8888").await {
             Ok(c) => c,
             Err(_) => return skip(),
         };
