@@ -1,10 +1,5 @@
+use crate::{Key, Type};
 use ocaml_interop::*;
-
-pub enum Contents {
-    String,
-    Json,
-    JsonValue,
-}
 
 ocaml! {
     fn config(root: String) -> Config;
@@ -45,6 +40,22 @@ macro_rules! wrapper {
     };
 }
 
+unsafe impl FromOCaml<String> for Key {
+    fn from_ocaml(v: OCaml<'_, String>) -> Self {
+        let bytes = v.as_bytes();
+        Key::decode_bin(bytes).expect("Invalid key argument passed to Rust")
+    }
+}
+
+unsafe impl ToOCaml<String> for Key {
+    fn to_ocaml<'a>(&self, rt: &'a mut OCamlRuntime) -> OCaml<'a, String> {
+        let mut data = Vec::new();
+        self.encode_bin(&mut data)
+            .expect("Invalid key argument passed to OCaml");
+        data.to_ocaml(rt)
+    }
+}
+
 wrapper!(Config);
 
 impl Config {
@@ -77,41 +88,35 @@ impl Store {
         x.to_rust(cr)
     }
 
-    pub fn mem(&self, ctx: &Context, key: impl AsRef<str>) -> bool {
+    pub fn mem(&self, ctx: &Context, key: &Key) -> bool {
         let cr = &mut ctx.rt.borrow_mut();
         let store = self.to_ocaml(cr).root();
-        let key = key.as_ref().to_ocaml(cr).root();
+        let key = key.to_ocaml(cr).root();
         let x: BoxRoot<bool> = store_mem(cr, &store, &key);
         x.to_rust(cr)
     }
 
-    pub fn find(&self, ctx: &Context, key: impl AsRef<str>) -> Option<String> {
+    pub fn find(&self, ctx: &Context, key: &Key) -> Option<String> {
         let cr = &mut ctx.rt.borrow_mut();
         let store = self.to_ocaml(cr).root();
-        let key = key.as_ref().to_ocaml(cr).root();
+        let key = key.to_ocaml(cr).root();
         let x = store_find(cr, &store, &key);
         x.to_rust(cr)
     }
 
-    pub fn remove(&self, ctx: &Context, key: impl AsRef<str>, info: impl AsRef<str>) {
+    pub fn remove(&self, ctx: &Context, key: &Key, msg: impl AsRef<str>) {
         let cr = &mut ctx.rt.borrow_mut();
         let store = self.to_ocaml(cr).root();
-        let key = key.as_ref().to_ocaml(cr).root();
-        let info = info.as_ref().to_ocaml(cr).root();
+        let key = key.to_ocaml(cr).root();
+        let info = msg.as_ref().to_ocaml(cr).root();
         let _: BoxRoot<()> = store_remove(cr, &store, &key, &info);
     }
 
-    pub fn set(
-        &self,
-        ctx: &Context,
-        key: impl AsRef<str>,
-        value: impl AsRef<[u8]>,
-        message: impl AsRef<str>,
-    ) {
+    pub fn set(&self, ctx: &Context, key: &Key, value: impl AsRef<[u8]>, msg: impl AsRef<str>) {
         let cr = &mut ctx.rt.borrow_mut();
         let store = self.to_ocaml(cr).root();
-        let key = key.as_ref().to_ocaml(cr).root();
-        let info = message.as_ref().to_ocaml(cr).root();
+        let key = key.to_ocaml(cr).root();
+        let info = msg.as_ref().to_ocaml(cr).root();
         let value = value.as_ref().to_ocaml(cr).root();
         let _: BoxRoot<()> = store_set(cr, &store, &key, &value, &info);
     }
@@ -127,12 +132,13 @@ mod tests {
         let cfg = Config::new(&ctx, "test123");
         let repo = Repo::new(&ctx, &cfg);
         let master = Store::master(&ctx, &repo);
-        let x = master.find(&ctx, "/a/b/c");
+        let key = Key::new(&["a", "b", "c"]);
+        let x = master.find(&ctx, &key);
         assert!(x.is_none());
 
-        master.set(&ctx, "/a/b/c", "123", "test");
+        master.set(&ctx, &key, "123", "test");
 
-        let x = master.find(&ctx, "/a/b/c").unwrap();
+        let x = master.find(&ctx, &key).unwrap();
         assert!(x.as_str() == "123");
     }
 }

@@ -26,8 +26,10 @@ module OCaml = struct
   module Store = struct
     let master (repo : Store.repo Lwt.t) = repo >>= Store.master
 
+    let key_arg = Irmin.Type.(of_bin_string Store.key_t |> unstage)
+
     let find store key =
-      let key = Irmin.Type.of_string Store.key_t key |> Result.get_ok in
+      let key = key_arg key |> Result.get_ok in
       Lwt_main.run
         ( store >>= fun store ->
           Store.find store key >>= function
@@ -35,17 +37,17 @@ module OCaml = struct
           | None -> Lwt.return_none )
 
     let set store key value message =
-      let key = Irmin.Type.of_string Store.key_t key |> Result.get_ok in
+      let key = key_arg key |> Result.get_ok in
       let info = Irmin_unix.info "%s" message in
       Lwt_main.run (store >>= fun store -> Store.set_exn store key ~info value)
 
     let mem store key =
-      let key = Irmin.Type.of_string Store.key_t key |> Result.get_ok in
+      let key = key_arg key |> Result.get_ok in
       Lwt_main.run (store >>= fun store -> Store.mem store key)
 
     let remove store key message =
       let info = Irmin_unix.info "%s" message in
-      let key = Irmin.Type.of_string Store.key_t key |> Result.get_ok in
+      let key =  key_arg key |> Result.get_ok in
       Lwt_main.run (store >>= fun store -> Store.remove store key ~info)
   end
 
