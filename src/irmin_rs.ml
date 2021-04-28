@@ -7,7 +7,8 @@ module Pack_config = struct
   let entries = 32
 end
 
-module Store = Irmin_pack.KV (Pack_config) (Irmin.Contents.String)
+module Maker = Irmin_pack.KV (struct let version = `V1 end)  (Pack_config)
+module Store = Maker.Make(Irmin.Contents.String)
 
 type contents = String | Json | Json_value
 
