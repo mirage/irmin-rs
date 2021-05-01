@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum Str<'a> {
     Owned(String),
     Ref(&'a str),

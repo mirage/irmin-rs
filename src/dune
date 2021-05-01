@@ -1,6 +1,8 @@
 (executable
- (modes (native shared_object))
+ (modes
+  (native shared_object))
  (modules irmin_rs)
  (name irmin_rs)
- (link_flags (:standard -linkall)) ; -ccopt -lrt -ccopt -lpthread -ccopt -lgmp))
+ (link_flags
+  (:standard -linkall)) ; -ccopt -lrt -ccopt -lpthread -ccopt -lgmp))
  (libraries irmin-unix))

@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 mod array;
 mod bytes;
 mod string;
@@ -14,13 +16,17 @@ pub use string::Str;
 pub use irmin_type_derive::IrminType as Type;
 
 pub trait Type: Sized {
+    fn name() -> String;
+
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize>;
 
     fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self>;
 }
 
-pub trait Fixed {
+pub trait Fixed: Sized {
     const SIZE: usize;
+
+    fn hash(x: impl AsRef<[u8]>) -> crate::Hash<Self>;
 }
 
 fn encode_int<W: std::io::Write>(mut n: i64, mut dest: W) -> std::io::Result<usize> {
@@ -69,6 +75,10 @@ fn decode_int<R: std::io::Read>(mut src: R) -> std::io::Result<Int> {
 }
 
 impl Type for bool {
+    fn name() -> String {
+        "bool".into()
+    }
+
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         (if *self { 255 } else { 0 }).encode_bin(dest)
     }
@@ -80,6 +90,10 @@ impl Type for bool {
 }
 
 impl Type for isize {
+    fn name() -> String {
+        "int".into()
+    }
+
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         encode_int(*self as i64, dest)
     }
@@ -90,6 +104,9 @@ impl Type for isize {
 }
 
 impl Type for usize {
+    fn name() -> String {
+        "int".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         encode_int(*self as i64, dest)
     }
@@ -100,6 +117,9 @@ impl Type for usize {
 }
 
 impl Type for i32 {
+    fn name() -> String {
+        "int32".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         (*self as u32).encode_bin(dest)
     }
@@ -111,6 +131,9 @@ impl Type for i32 {
 }
 
 impl Type for i64 {
+    fn name() -> String {
+        "int64".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         (*self as u64).encode_bin(dest)
     }
@@ -122,6 +145,9 @@ impl Type for i64 {
 }
 
 impl Type for () {
+    fn name() -> String {
+        "unit".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, _dest: W) -> std::io::Result<usize> {
         Ok(0)
     }
@@ -132,6 +158,9 @@ impl Type for () {
 }
 
 impl Type for u8 {
+    fn name() -> String {
+        "int8".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         dest.write_all(&[*self])?;
         Ok(1)
@@ -145,6 +174,9 @@ impl Type for u8 {
 }
 
 impl Type for u16 {
+    fn name() -> String {
+        "int16".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let buf = self.to_be_bytes();
         dest.write_all(&buf)?;
@@ -159,6 +191,9 @@ impl Type for u16 {
 }
 
 impl Type for u32 {
+    fn name() -> String {
+        "int32".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let buf = self.to_be_bytes();
         dest.write_all(&buf)?;
@@ -173,6 +208,9 @@ impl Type for u32 {
 }
 
 impl Type for u64 {
+    fn name() -> String {
+        "int64".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let buf = self.to_be_bytes();
         dest.write_all(&buf)?;
@@ -187,6 +225,9 @@ impl Type for u64 {
 }
 
 impl Type for f64 {
+    fn name() -> String {
+        "float".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         self.to_bits().encode_bin(dest)
     }
@@ -198,6 +239,9 @@ impl Type for f64 {
 }
 
 impl Type for String {
+    fn name() -> String {
+        "string".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         Str::Ref(self.as_ref()).encode_bin(dest)
     }
@@ -217,6 +261,10 @@ impl Type for String {
 }
 
 impl<T: Type> Type for Vec<T> {
+    fn name() -> String {
+        format!("{} list", T::name())
+    }
+
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         Array::Ref(self.as_ref()).encode_bin(dest)
     }
@@ -233,7 +281,39 @@ impl<T: Type> Type for Vec<T> {
     }
 }
 
+impl<K: Ord + Type, V: Type> Type for BTreeMap<K, V> {
+    fn name() -> String {
+        format!("({} * {}) list", K::name(), V::name())
+    }
+    fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
+        let i = self.len();
+        i.encode_bin(&mut dest)?;
+        let mut n = 0;
+        for (k, v) in self.iter() {
+            n += k.encode_bin(&mut dest)?;
+            n += v.encode_bin(&mut dest)?;
+        }
+        Ok(n)
+    }
+
+    fn decode_bin<R: std::io::Read>(mut src: R) -> std::io::Result<BTreeMap<K, V>> {
+        let i = decode_int(&mut src)?;
+        let mut dest = BTreeMap::new();
+
+        for _ in 0..i as usize {
+            let k = K::decode_bin(&mut src)?;
+            let v = V::decode_bin(&mut src)?;
+            dest.insert(k, v);
+        }
+
+        Ok(dest)
+    }
+}
+
 impl<T: Type, U: Type> Type for Pair<T, U> {
+    fn name() -> String {
+        format!("({} * {})", T::name(), U::name())
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let mut n = self.0.encode_bin(&mut dest)?;
         n += self.1.encode_bin(&mut dest)?;
@@ -248,6 +328,9 @@ impl<T: Type, U: Type> Type for Pair<T, U> {
 }
 
 impl<T: Type, U: Type, V: Type> Type for Triple<T, U, V> {
+    fn name() -> String {
+        format!("({} * {} * {})", T::name(), U::name(), V::name())
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let mut n = self.0.encode_bin(&mut dest)?;
         n += self.1.encode_bin(&mut dest)?;
@@ -264,6 +347,9 @@ impl<T: Type, U: Type, V: Type> Type for Triple<T, U, V> {
 }
 
 impl<T: Type> Type for Option<T> {
+    fn name() -> String {
+        format!("{} option", T::name())
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         match self {
             None => 0u8.encode_bin(dest),
@@ -285,6 +371,9 @@ impl<T: Type> Type for Option<T> {
 }
 
 impl<T: Type> Type for &T {
+    fn name() -> String {
+        format!("{} option", T::name())
+    }
     fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
         (*self).encode_bin(dest)
     }
@@ -298,6 +387,9 @@ impl<T: Type> Type for &T {
 }
 
 impl Type for &str {
+    fn name() -> String {
+        "string".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let i = self.len();
         let n = i.encode_bin(&mut dest)?;
@@ -314,6 +406,10 @@ impl Type for &str {
 }
 
 impl<'a, T: Type> Type for Array<'a, T> {
+    fn name() -> String {
+        format!("{} array", T::name())
+    }
+
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let i = self.len();
         i.encode_bin(&mut dest)?;
@@ -331,6 +427,9 @@ impl<'a, T: Type> Type for Array<'a, T> {
 }
 
 impl<'a> Type for Str<'a> {
+    fn name() -> String {
+        "string".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let i = self.len();
         let n = i.encode_bin(&mut dest)?;
@@ -345,6 +444,9 @@ impl<'a> Type for Str<'a> {
 }
 
 impl<'a> Type for Bytes<'a> {
+    fn name() -> String {
+        "bytes".into()
+    }
     fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
         let i = self.as_ref().len();
         let n = i.encode_bin(&mut dest)?;

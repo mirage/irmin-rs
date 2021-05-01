@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum Array<'a, T> {
     Owned(Vec<T>),
     Ref(&'a [T]),

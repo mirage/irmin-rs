@@ -17,7 +17,7 @@ mod key;
 pub use key::Key;
 
 mod tree;
-pub use tree::Tree;
+pub use tree::{Concrete, Tree};
 
 mod r#type;
 pub use r#type::*;

@@ -21,6 +21,11 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
 
         s.gen_impl(quote! {
             gen impl irmin::Type for @Self {
+                fn name() -> String {
+                    let mut s = String::from(stringify!(#name));
+                    s.make_ascii_lowercase();
+                    s
+                }
                 fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
                     let mut count = 0;
                     match self {
@@ -39,14 +44,13 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
         .into()
     } else {
         let mut bindings_index = 0;
-        let mut non_bindings_index = 0;
         let encode = s.each_variant(|variant| {
             let bindings = variant.bindings();
             if bindings.len() == 0 {
                 let q = quote! {
-                    count += (#non_bindings_index as isize).encode_bin(&mut dest)?;
+                    count += (#bindings_index as isize).encode_bin(&mut dest)?;
                 };
-                non_bindings_index += 1;
+                bindings_index += 1;
                 q
             } else {
                 let b = &bindings[0];
@@ -59,28 +63,36 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
             }
         });
 
-        let decode = s.variants().iter().fold(quote!(), |acc, variant| {
-            let construct = if variant.bindings().len() == 0 {
-                variant.construct(|field, _| quote!(#field))
-            } else {
-                variant.construct(|_field, idx| {
-                    assert!(idx == 0);
-                    quote!(irmin::Type::decode_bin(&mut src)?)
-                })
-            };
-            quote! {
-                #acc
+        let decode = s
+            .variants()
+            .iter()
+            .enumerate()
+            .fold(quote!(), |acc, (n, variant)| {
+                let construct = if variant.bindings().len() == 0 {
+                    variant.construct(|field, _| {
+                        quote!({
+                            #field
+                        })
+                    })
+                } else {
+                    variant.construct(|_field, _idx| quote!({ irmin::Type::decode_bin(&mut src)? }))
+                };
+                quote! {
+                    #acc;
 
-                if find == index {
-                    return Ok(#construct)
+                    if #n == index as usize {
+                        return Ok(#construct)
+                    }
                 }
-
-                find += 1;
-            }
-        });
+            });
 
         s.gen_impl(quote! {
             gen impl irmin::Type for @Self {
+                fn name() -> String {
+                    let mut s = String::from(stringify!(#name));
+                    s.make_ascii_lowercase();
+                    s
+                }
                 fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
                     use #name::*;
 
@@ -94,7 +106,6 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                 fn decode_bin<R: std::io::Read>(mut src: R) -> std::io::Result<Self> {
                     use #name::*;
 
-                    let mut find = 0;
                     let index = isize::decode_bin(&mut src)?;
                     #decode
 

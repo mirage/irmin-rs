@@ -1,3 +1,4 @@
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum Bytes<'a> {
     Owned(Vec<u8>),
     Ref(&'a [u8]),

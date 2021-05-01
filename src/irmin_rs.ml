@@ -7,8 +7,14 @@ module Pack_config = struct
   let entries = 32
 end
 
-module Maker = Irmin_pack.KV (struct let version = `V1 end)  (Pack_config)
-module Store = Maker.Make(Irmin.Contents.String)
+module Maker =
+  Irmin_pack.KV
+    (struct
+      let version = `V1
+    end)
+    (Pack_config)
+
+module Store = Maker.Make (Irmin.Contents.String)
 
 type contents = String | Json | Json_value
 
@@ -23,6 +29,8 @@ module OCaml = struct
   let repo config : Store.repo Lwt.t = Store.Repo.v config
 
   module Contents = struct end
+
+  module Info = Irmin_unix.Info (Store.Info)
 
   module Store = struct
     let master (repo : Store.repo Lwt.t) = repo >>= Store.master
@@ -39,7 +47,7 @@ module OCaml = struct
 
     let set store key value message =
       let key = key_arg key |> Result.get_ok in
-      let info = Irmin_unix.info "%s" message in
+      let info = Info.v "%s" message in
       Lwt_main.run (store >>= fun store -> Store.set_exn store key ~info value)
 
     let mem store key =
@@ -47,8 +55,8 @@ module OCaml = struct
       Lwt_main.run (store >>= fun store -> Store.mem store key)
 
     let remove store key message =
-      let info = Irmin_unix.info "%s" message in
-      let key =  key_arg key |> Result.get_ok in
+      let info = Info.v "%s" message in
+      let key = key_arg key |> Result.get_ok in
       Lwt_main.run (store >>= fun store -> Store.remove store key ~info)
   end
 
