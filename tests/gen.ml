@@ -19,6 +19,17 @@ type enum1 = A of float | B of string option [@@deriving repr]
 
 let enum1 () = save "enum1" Repr.(pair enum1_t enum1_t) (A 4.5, B None)
 
-let tests = [ int_string_pair; int_long_string_pair; struct1; enum1 ]
+module Store = Irmin_mem.KV.Make (Irmin.Contents.String)
+
+type tree = Hash of Store.Hash.t | ID of int | Local of Store.Tree.concrete
+[@@deriving repr]
+
+let empty_tree () = save "empty_tree" Store.Tree.concrete_t (`Tree [])
+
+let tree1 () =
+  save "tree1" Store.Tree.concrete_t (`Tree [ ("foo", `Contents ("bar", ())) ])
+
+let tests =
+  [ int_string_pair; int_long_string_pair; struct1; enum1; empty_tree; tree1 ]
 
 let () = Lwt_main.run (Lwt_list.iter_s (fun x -> x ()) tests)

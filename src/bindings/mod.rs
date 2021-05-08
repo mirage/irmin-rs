@@ -42,8 +42,8 @@ macro_rules! wrapper {
 
 unsafe impl FromOCaml<String> for Key {
     fn from_ocaml(v: OCaml<'_, String>) -> Self {
-        let bytes = v.as_bytes();
-        Key::decode_bin(bytes).expect("Invalid key argument passed to Rust")
+        let mut bytes = v.as_bytes();
+        Key::decode_bin(&mut bytes).expect("Invalid key argument passed to Rust")
     }
 }
 

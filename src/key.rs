@@ -4,15 +4,11 @@ use crate::Type;
 pub struct Key(Vec<String>);
 
 impl Type for Key {
-    fn name() -> String {
-        "string list".into()
-    }
-
-    fn encode_bin<W: std::io::Write>(&self, dest: W) -> std::io::Result<usize> {
+    fn encode_bin<W: std::io::Write>(&self, dest: &mut W) -> std::io::Result<usize> {
         self.0.encode_bin(dest)
     }
 
-    fn decode_bin<R: std::io::Read>(src: R) -> std::io::Result<Self> {
+    fn decode_bin<R: std::io::Read>(src: &mut R) -> std::io::Result<Self> {
         let x = Vec::<String>::decode_bin(src)?;
         Ok(Key(x))
     }

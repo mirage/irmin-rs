@@ -1,3 +1,5 @@
+#![recursion_limit = "128"]
+
 #[cfg(feature = "bindings")]
 pub mod bindings;
 

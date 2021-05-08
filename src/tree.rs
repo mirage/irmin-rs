@@ -1,84 +1,57 @@
+use std::collections::BTreeMap;
+
 use crate as irmin;
 use crate::Type;
 
-/*#[derive(Debug, Clone, Type)]
-pub enum Concrete<T: Type> {
-    Tree(Vec<(String, Concrete<T>)>),
-    Contents(T, ()),
-}*/
-
-#[derive(Debug, Clone, Type)]
-pub enum Tree<T: Type, Hash: Type> {
-    Hash(Hash),
+#[derive(Debug, Clone, Type, PartialEq)]
+pub enum Tree<T: Type, H: Type> {
+    Hash(H),
     Id(isize),
     Concrete(Concrete<T>),
 }
 
-#[derive(Debug, Clone)]
-pub struct Concrete<T: Type> {
-    encoded: Vec<u8>,
-    _t: std::marker::PhantomData<T>,
+#[derive(Debug, Clone, PartialEq)]
+pub enum Concrete<T> {
+    Tree(BTreeMap<String, Concrete<T>>),
+    Contents(T),
+}
+
+impl<T: Type, H: Type> Tree<T, H> {
+    pub fn empty() -> Self {
+        Tree::Concrete(Concrete::empty())
+    }
 }
 
 impl<T: Type> Type for Concrete<T> {
-    fn name() -> String {
-        String::new()
-    }
-
-    fn encode_bin<W: std::io::Write>(&self, mut w: W) -> std::io::Result<usize> {
-        let len = self.encoded.len();
-        //let count = len.encode_bin(&mut w)?;
-        w.write_all(&self.encoded)?;
-        Ok(len)
-    }
-
-    fn decode_bin<R: std::io::Read>(mut r: R) -> std::io::Result<Self> {
-        let header = usize::decode_bin(&mut r)?;
-        let mut data = vec![0u8; header];
-        r.read_exact(&mut data)?;
-        Ok(Concrete {
-            encoded: data,
-            _t: std::marker::PhantomData,
-        })
-    }
-}
-
-impl<T: Type, Hash: Type> Tree<T, Hash> {
-    pub fn empty() -> Self {
-        Tree::Concrete(Concrete {
-            encoded: vec![0, 0],
-            _t: std::marker::PhantomData,
-        })
-    }
-}
-
-/*impl<T: Type> Type for Concrete<T> {
-    fn encode_bin<W: std::io::Write>(&self, mut w: W) -> std::io::Result<usize> {
+    fn encode_bin<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
         match self {
-            Concrete::Contents(v, ()) => {
-                let mut n = 1usize.encode_bin(&mut w)?;
+            Concrete::Contents(v) => {
+                let mut n = 1usize.encode_bin(w)?;
                 n += v.encode_bin(w)?;
                 Ok(n)
             }
             Concrete::Tree(t) => {
-                let mut n = 0usize.encode_bin(&mut w)?;
+                let mut n = 0usize.encode_bin(w)?;
                 n += t.encode_bin(w)?;
                 Ok(n)
             }
         }
     }
 
-    fn decode_bin<R: std::io::Read>(mut r: R) -> std::io::Result<Self> {
-        let header = usize::decode_bin(&mut r)?;
-        if header == 0 {
-            Ok(Concrete::Tree(BTreeMap::decode_bin(r)?))
-        } else {
-            Ok(Concrete::Contents(T::decode_bin(r)?, ()))
+    fn decode_bin<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
+        let header = usize::decode_bin(r)?;
+        match header {
+            0 => Ok(Concrete::Tree(BTreeMap::decode_bin(r)?)),
+            1 => Ok(Concrete::Contents(T::decode_bin(r)?)),
+            _ => Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Invalid Tree format",
+            )),
         }
     }
-}*/
+}
 
-/*impl<T: Type> Concrete<T> {
+impl<T: Type> Concrete<T> {
     pub fn empty() -> Self {
         Concrete::Tree(BTreeMap::new())
     }
@@ -92,7 +65,7 @@ impl<T: Type, Hash: Type> Tree<T, Hash> {
 
     pub fn is_contents(&self) -> bool {
         match self {
-            Concrete::Contents(_, _) => true,
+            Concrete::Contents(_) => true,
             _ => false,
         }
     }
@@ -100,10 +73,10 @@ impl<T: Type, Hash: Type> Tree<T, Hash> {
     pub fn add(&mut self, key: impl Into<String>, value: T) {
         match self {
             Concrete::Tree(t) => {
-                let value = Concrete::Contents(value, ());
+                let value = Concrete::Contents(value);
                 t.insert(key.into(), value);
             }
-            Concrete::Contents(_, _) => {
+            Concrete::Contents(_) => {
                 *self = Self::empty();
                 self.add(key, value);
             }
@@ -115,7 +88,7 @@ impl<T: Type, Hash: Type> Tree<T, Hash> {
             Concrete::Tree(t) => {
                 t.insert(key.into(), tree);
             }
-            Concrete::Contents(_, _) => {
+            Concrete::Contents(_) => {
                 *self = Self::empty();
                 self.add_tree(key, tree);
             }
@@ -147,7 +120,7 @@ impl<T: Type, Hash: Type> Tree<T, Hash> {
             _ => false,
         }
     }
-}*/
+}
 
 /*impl<Hash: Type> Type for Tree<Hash> {
     fn encode_bin<W: std::io::Write>(&self, w: W) -> std::io::Result<usize> {}

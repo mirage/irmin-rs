@@ -8,11 +8,13 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
     let name = &s.ast().ident;
     let is_record_like = s.variants().len() == 1;
     if is_record_like {
-        let encode = s.each(|bi| quote!(count += #bi.encode_bin(&mut dest)?;));
+        let encode = s.each(|bi| quote!(count += #bi.encode_bin(dest)?;));
 
         let decode = s.variants().iter().map(|variant| {
-            let construct =
-                variant.construct(|_field, _idx| quote!(irmin::Type::decode_bin(&mut src)?));
+            let construct = variant.construct(|field, _idx| {
+                let t = &field.ty;
+                quote!(<#t as irmin::Type>::decode_bin(src)?)
+            });
 
             quote! {
                 #construct
@@ -21,12 +23,7 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
 
         s.gen_impl(quote! {
             gen impl irmin::Type for @Self {
-                fn name() -> String {
-                    let mut s = String::from(stringify!(#name));
-                    s.make_ascii_lowercase();
-                    s
-                }
-                fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
+                fn encode_bin<W: std::io::Write>(&self, dest: &mut W) -> std::io::Result<usize> {
                     let mut count = 0;
                     match self {
                         #encode
@@ -34,7 +31,7 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                     Ok(count)
                 }
 
-                fn decode_bin<R: std::io::Read>(mut src: R) -> std::io::Result<Self> {
+                fn decode_bin<R: std::io::Read>(src: &mut R) -> std::io::Result<Self> {
                     Ok({
                         #(#decode),*
                     })
@@ -48,15 +45,15 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
             let bindings = variant.bindings();
             if bindings.len() == 0 {
                 let q = quote! {
-                    count += (#bindings_index as isize).encode_bin(&mut dest)?;
+                    count += (#bindings_index as isize).encode_bin(dest)?;
                 };
                 bindings_index += 1;
                 q
             } else {
                 let b = &bindings[0];
                 let q = quote! {
-                    count += (#bindings_index as isize).encode_bin(&mut dest)?;
-                    count += #b.encode_bin(&mut dest)?;
+                    count += (#bindings_index as isize).encode_bin(dest)?;
+                    count += #b.encode_bin(dest)?;
                 };
                 bindings_index += 1;
                 q
@@ -75,7 +72,7 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                         })
                     })
                 } else {
-                    variant.construct(|_field, _idx| quote!({ irmin::Type::decode_bin(&mut src)? }))
+                    variant.construct(|_field, _idx| quote!({ irmin::Type::decode_bin(src)? }))
                 };
                 quote! {
                     #acc;
@@ -88,12 +85,7 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
 
         s.gen_impl(quote! {
             gen impl irmin::Type for @Self {
-                fn name() -> String {
-                    let mut s = String::from(stringify!(#name));
-                    s.make_ascii_lowercase();
-                    s
-                }
-                fn encode_bin<W: std::io::Write>(&self, mut dest: W) -> std::io::Result<usize> {
+                fn encode_bin<W: std::io::Write>(&self, dest: &mut W) -> std::io::Result<usize> {
                     use #name::*;
 
                     let mut count = 0;
@@ -103,10 +95,10 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
                     Ok(count)
                 }
 
-                fn decode_bin<R: std::io::Read>(mut src: R) -> std::io::Result<Self> {
+                fn decode_bin<R: std::io::Read>(src: &mut R) -> std::io::Result<Self> {
                     use #name::*;
 
-                    let index = isize::decode_bin(&mut src)?;
+                    let index = isize::decode_bin(src)?;
                     #decode
 
                     Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid variant"))

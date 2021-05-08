@@ -10,18 +10,16 @@ use blake2::Digest;
 pub type Tcp = TcpStream;
 pub type Unix = UnixStream;
 
-pub struct Client<Socket, Contents: Type, Hash: Type> {
+pub struct Client<Socket, Contents: Type, H: Type> {
     conn: RefCell<BufStream<Socket>>,
-    _t: std::marker::PhantomData<(Contents, Hash)>,
+    _t: std::marker::PhantomData<(Contents, H)>,
 }
 
-pub struct Store<'a, Socket, Contents: Type, Hash: Type> {
-    client: &'a Client<Socket, Contents, Hash>,
+pub struct Store<'a, Socket, Contents: Type, H: Type> {
+    client: &'a Client<Socket, Contents, H>,
 }
 
-impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, Hash: Type>
-    Client<Socket, Contents, Hash>
-{
+impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Type> Client<Socket, Contents, H> {
     async fn write_handshake(&self, content_name: &str) -> std::io::Result<()> {
         let mut conn = self.conn.borrow_mut();
         let hash = format!("{:x}\n", blake2::Blake2b::digest(content_name.as_bytes()));
@@ -77,7 +75,7 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, Hash: Type>
         let len = i64::from_be_bytes(len_buf);
         let mut data = vec![0u8; len as usize];
         conn.read_exact(data.as_mut_slice()).await?;
-        T::decode_bin(data.as_slice())
+        T::decode_bin(&mut data.as_slice())
     }
 
     async fn request(&self, command: impl AsRef<str>, msg: impl Type) -> std::io::Result<()> {
@@ -108,7 +106,7 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, Hash: Type>
         Ok(())
     }
 
-    pub fn store<'a>(&'a self) -> Store<'a, Socket, Contents, Hash> {
+    pub fn store<'a>(&'a self) -> Store<'a, Socket, Contents, H> {
         Store { client: self }
     }
 }
@@ -145,8 +143,8 @@ impl<C: Type, H: Type> Client<UnixStream, C, H> {
     }
 }
 
-impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, Hash: Type>
-    Store<'a, Socket, Contents, Hash>
+impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Type>
+    Store<'a, Socket, Contents, H>
 {
     pub async fn set<T: Type>(&self, key: &Key, value: T, info: Info) -> std::io::Result<()> {
         self.client.request("store.set", (key, info, value)).await?;
@@ -164,42 +162,42 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, Hash: Type>
     }
 }
 
-impl<Hash: Type + Clone> Commit<Hash> {
+impl<H: Type + Clone> Commit<H> {
     pub async fn create<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
-        client: &Client<Socket, Contents, Hash>,
-        node: Hash,
-        parents: impl Into<Vec<Hash>>,
+        client: &Client<Socket, Contents, H>,
+        node: &H,
+        parents: impl Into<Vec<H>>,
         info: Info,
-    ) -> std::io::Result<Commit<Hash>> {
+    ) -> std::io::Result<Commit<H>> {
         let parents = parents.into();
         client.request("commit.v", (info, parents, node)).await?;
-        client.response::<Commit<Hash>>().await
+        client.response::<Commit<H>>().await
     }
 }
 
-impl<T: Type, Hash: Type> Tree<T, Hash> {
+impl<T: Type, H: Type> Tree<T, H> {
     pub async fn add<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
-        client: &Client<Socket, Contents, Hash>,
+        client: &Client<Socket, Contents, H>,
         key: &Key,
         value: &T,
-    ) -> std::io::Result<Tree<T, Hash>> {
+    ) -> std::io::Result<Tree<T, H>> {
         client.request("tree.add", (self, key, value)).await?;
-        client.response::<Tree<T, Hash>>().await
+        client.response::<Tree<T, H>>().await
     }
 
     pub async fn remove<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
-        client: &Client<Socket, Contents, Hash>,
+        client: &Client<Socket, Contents, H>,
         key: &Key,
-    ) -> std::io::Result<Tree<T, Hash>> {
+    ) -> std::io::Result<Tree<T, H>> {
         client.request("tree.remove", (self, key)).await?;
-        client.response::<Tree<T, Hash>>().await
+        client.response::<Tree<T, H>>().await
     }
 
     pub async fn find<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
-        client: &Client<Socket, Contents, Hash>,
+        client: &Client<Socket, Contents, H>,
         key: &Key,
     ) -> std::io::Result<Option<T>> {
         client.request("tree.find", (self, key)).await?;
@@ -208,11 +206,11 @@ impl<T: Type, Hash: Type> Tree<T, Hash> {
 
     pub async fn find_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
-        client: &Client<Socket, Contents, Hash>,
+        client: &Client<Socket, Contents, H>,
         key: &Key,
-    ) -> std::io::Result<Option<Tree<T, Hash>>> {
+    ) -> std::io::Result<Option<Tree<T, H>>> {
         client.request("tree.find_tree", (self, key)).await?;
-        client.response::<Option<Tree<T, Hash>>>().await
+        client.response::<Option<Tree<T, H>>>().await
     }
 }
 
@@ -229,7 +227,7 @@ mod tests {
     #[tokio::test]
     async fn test_client() -> std::io::Result<()> {
         let client =
-            match Client::<Tcp, Bytes, Hash<Blake2b>>::new("127.0.0.1:9181", "string").await {
+            match Client::<Tcp, Bytes, HashRef<Blake2b>>::new("127.0.0.1:9181", "string").await {
                 Ok(c) => c,
                 Err(e) => {
                     eprintln!("Server error: {:?}", e);
@@ -246,7 +244,7 @@ mod tests {
         assert_eq!(s, Some("testing".to_string()));
         store.remove(&key, Info::new()).await?;
 
-        let tree = Tree::<Bytes, Hash<Blake2b>>::empty();
+        let tree = Tree::<Bytes, HashRef<Blake2b>>::empty();
         println!("{:?}", tree);
 
         let mut s = Vec::new();
@@ -262,8 +260,9 @@ mod tests {
             let x = t.find(&client, &key1).await?;
             assert!(b.as_ref() == x.unwrap().as_ref());
 
-            //let y = t.find_tree(&client, &key1).await?;
-            //assert!(y.is_none());
+            let key2 = Key::new(["key2"]);
+            let y = t.find_tree(&client, &key2).await?;
+            assert!(y.is_none());
 
             let t = t.remove(&client, &key1).await?;
             let x = t.find(&client, &key1).await?;
