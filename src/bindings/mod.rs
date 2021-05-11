@@ -8,7 +8,12 @@ ocaml! {
     fn store_mem(store: Store, key: String) -> bool;
     fn store_remove(store: Store, key: String, message: String);
     fn store_find(store: Store, key: String) -> Option<OCamlBytes>;
-    fn store_set(store: Store, key: String, value: String, message: String);
+    fn store_set(store: Store, key: String, value: OCamlBytes, message: String);
+    fn tree_of_concrete(concrete: String) -> Tree;
+    fn tree_to_concrete(t: Tree) -> OCamlBytes;
+    fn tree_empty(unit: ()) -> Tree;
+    fn tree_add(t: Tree, key: String, value: OCamlBytes) -> Tree;
+    fn tree_mem(t: Tree, key: String) -> bool;
 }
 
 pub struct Context {
@@ -122,6 +127,48 @@ impl Store {
     }
 }
 
+wrapper!(Tree);
+
+impl Tree {
+    pub fn empty(ctx: &Context) -> Tree {
+        let mut cr = ctx.rt.borrow_mut();
+        let arg = ().to_ocaml(&mut cr).root();
+        tree_empty(&mut cr, &arg).to_rust(&mut cr)
+    }
+
+    pub fn of_concrete<T: Type>(ctx: &Context, c: &crate::Concrete<T>) -> Tree {
+        let mut cr = ctx.rt.borrow_mut();
+        let mut dest = Vec::new();
+        c.encode_bin(&mut dest).expect("Invalid Tree");
+        let s = dest.to_ocaml(&mut cr).root();
+        tree_of_concrete(&mut cr, &s).to_rust(&mut cr)
+    }
+
+    pub fn to_concrete<T: Type>(&self, ctx: &Context) -> crate::Concrete<T> {
+        let mut cr = ctx.rt.borrow_mut();
+
+        let tree = self.to_ocaml(&mut cr).root();
+        let s = tree_to_concrete(&mut cr, &tree);
+        let s: Vec<u8> = s.to_rust(&mut cr);
+        Type::decode_bin(&mut s.as_slice()).expect("Invalid tree")
+    }
+
+    pub fn add(&self, ctx: &Context, key: &Key, value: impl AsRef<[u8]>) -> Tree {
+        let cr = &mut ctx.rt.borrow_mut();
+        let tree = self.to_ocaml(cr).root();
+        let key = key.to_ocaml(cr).root();
+        let value = value.as_ref().to_ocaml(cr).root();
+        tree_add(cr, &tree, &key, &value).to_rust(cr)
+    }
+
+    pub fn mem(&self, ctx: &Context, key: &Key) -> bool {
+        let cr = &mut ctx.rt.borrow_mut();
+        let tree = self.to_ocaml(cr).root();
+        let key = key.to_ocaml(cr).root();
+        tree_mem(cr, &tree, &key).to_rust(cr)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::bindings::*;
@@ -140,5 +187,11 @@ mod tests {
 
         let x = master.find(&ctx, &key).unwrap();
         assert!(x.as_str() == "123");
+
+        let t = Tree::empty(&ctx);
+        let foo_key = Key::new(&["foo"]);
+        assert!(!t.mem(&ctx, &foo_key));
+        let t = t.add(&ctx, &foo_key, "bar");
+        assert!(t.mem(&ctx, &foo_key));
     }
 }

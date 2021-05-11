@@ -1,4 +1,4 @@
-(*open Lwt.Syntax*)
+open Lwt.Syntax
 open Lwt.Infix
 
 module Pack_config = struct
@@ -32,17 +32,42 @@ module OCaml = struct
 
   module Info = Irmin_unix.Info (Store.Info)
 
+  let key_arg = Irmin.Type.(of_bin_string Store.key_t |> unstage)
+
+  module Tree = struct
+    let encode = Irmin.Type.(unstage (to_bin_string Store.Tree.concrete_t))
+
+    let decode = Irmin.Type.(unstage (of_bin_string Store.Tree.concrete_t))
+
+    let to_concrete t =
+      Lwt_main.run
+        (let+ c = Store.Tree.to_concrete t in
+         encode c)
+
+    let of_concrete t =
+      let t = decode t |> Result.get_ok in
+      Store.Tree.of_concrete t
+
+    let add t k value =
+      let key = key_arg k |> Result.get_ok in
+      Lwt_main.run (Store.Tree.add t key value)
+
+    let mem t k =
+      let key = key_arg k |> Result.get_ok in
+      Lwt_main.run (Store.Tree.mem t key)
+
+    let empty () = Store.Tree.empty
+  end
+
   module Store = struct
     let master (repo : Store.repo Lwt.t) = repo >>= Store.master
-
-    let key_arg = Irmin.Type.(of_bin_string Store.key_t |> unstage)
 
     let find store key =
       let key = key_arg key |> Result.get_ok in
       Lwt_main.run
         ( store >>= fun store ->
           Store.find store key >>= function
-          | Some x -> Lwt.return_some (Irmin.Type.to_string Store.contents_t x)
+          | Some x -> Lwt.return_some x
           | None -> Lwt.return_none )
 
     let set store key value message =
@@ -66,6 +91,11 @@ module OCaml = struct
     [
       ("config", Function config);
       ("repo", Function repo);
+      ("tree_of_concrete", Function Tree.of_concrete);
+      ("tree_to_concrete", Function Tree.to_concrete);
+      ("tree_add", Function Tree.add);
+      ("tree_mem", Function Tree.mem);
+      ("tree_empty", Function Tree.empty);
       ("store_master", Function Store.master);
       ("store_find", Function Store.find);
       ("store_set", Function Store.set);
