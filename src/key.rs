@@ -1,4 +1,5 @@
 use crate::Type;
+use ocaml_interop::*;
 
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Key(Vec<String>);
@@ -11,6 +12,22 @@ impl Type for Key {
     fn decode_bin<R: std::io::Read>(src: &mut R) -> std::io::Result<Self> {
         let x = Vec::<String>::decode_bin(src)?;
         Ok(Key(x))
+    }
+}
+
+unsafe impl FromOCaml<String> for Key {
+    fn from_ocaml(v: OCaml<'_, String>) -> Self {
+        let mut bytes = v.as_bytes();
+        Key::decode_bin(&mut bytes).expect("Invalid key argument passed to Rust")
+    }
+}
+
+unsafe impl ToOCaml<String> for Key {
+    fn to_ocaml<'a>(&self, rt: &'a mut OCamlRuntime) -> OCaml<'a, String> {
+        let mut data = Vec::new();
+        self.encode_bin(&mut data)
+            .expect("Invalid key argument passed to OCaml");
+        data.to_ocaml(rt)
     }
 }
 

@@ -1,29 +1,7 @@
 open Lwt.Syntax
 open Lwt.Infix
 
-module Pack_config = struct
-  let stable_hash = 256
-
-  let entries = 32
-end
-
-module Maker =
-  Irmin_pack.KV
-    (struct
-      let version = `V1
-    end)
-    (Pack_config)
-
-module Store = Maker.Make (Irmin.Contents.String)
-
-type contents = String | Json | Json_value
-
-let contents : contents -> (module Irmin.Contents.S) = function
-  | String -> (module Irmin.Contents.String)
-  | Json -> (module Irmin.Contents.Json)
-  | Json_value -> (module Irmin.Contents.Json_value)
-
-module OCaml = struct
+module Make (Store : Irmin.S) = struct
   let config root = Irmin_pack.config root
 
   let repo config : Store.repo Lwt.t = Store.Repo.v config
@@ -33,6 +11,14 @@ module OCaml = struct
   module Info = Irmin_unix.Info (Store.Info)
 
   let key_arg = Irmin.Type.(of_bin_string Store.key_t |> unstage)
+
+  module Threads = struct
+    let bind = Lwt.bind
+
+    let map = Lwt.map
+
+    let return = Lwt.return
+  end
 
   module Tree = struct
     let encode = Irmin.Type.(unstage (to_bin_string Store.Tree.concrete_t))
@@ -104,7 +90,13 @@ module OCaml = struct
     ]
 end
 
-let () =
+let store_gen store contents hash =
+  let hash = Option.map Irmin_unix.Resolver.Hash.find hash in
+  let t, _ = Irmin_unix.Resolver.load_config ~store ~hash ~contents () in
+  let (module Store : Irmin.S), _ = Irmin_unix.Resolver.Store.destruct t in
+  let module OCaml = Make (Store) in
   List.iter
     (fun (name, OCaml.Function f) -> Callback.register name f)
     OCaml.functions
+
+let () = Callback.register "store_gen" store_gen
