@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn basic() {
-        let ctx = Context::new(Generator::new().with_store_type("mem"));
+        let ctx = Builder::new().with_store_type("mem").build();
         let cfg = Config::new(&ctx, "test123");
         let repo = Repo::new(&ctx, &cfg);
         let master = Store::master(&ctx, &repo);
