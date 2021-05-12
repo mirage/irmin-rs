@@ -3,23 +3,23 @@ use std::cell::RefCell;
 use tokio::io::*;
 use tokio::net::{TcpStream, ToSocketAddrs, UnixStream};
 
-use crate::{Commit, Info, Key, Tree, Type};
+use crate::{Commit, Hash, Info, Key, Tree, Type};
 
 use blake2::Digest;
 
 pub type Tcp = TcpStream;
 pub type Unix = UnixStream;
 
-pub struct Client<Socket, Contents: Type, H: Type> {
+pub struct Client<Socket, Contents: Type, H: Hash> {
     conn: RefCell<BufStream<Socket>>,
     _t: std::marker::PhantomData<(Contents, H)>,
 }
 
-pub struct Store<'a, Socket, Contents: Type, H: Type> {
+pub struct Store<'a, Socket, Contents: Type, H: Hash> {
     client: &'a Client<Socket, Contents, H>,
 }
 
-impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Type> Client<Socket, Contents, H> {
+impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Socket, Contents, H> {
     async fn write_handshake(&self, content_name: &str) -> std::io::Result<()> {
         let mut conn = self.conn.borrow_mut();
         let hash = format!("{:x}\n", blake2::Blake2b::digest(content_name.as_bytes()));
@@ -111,7 +111,7 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Type> Client<Soc
     }
 }
 
-impl<C: Type, H: Type> Client<TcpStream, C, H> {
+impl<C: Type, H: Hash> Client<TcpStream, C, H> {
     pub async fn new(
         s: impl ToSocketAddrs,
         content_name: impl AsRef<str>,
@@ -127,7 +127,7 @@ impl<C: Type, H: Type> Client<TcpStream, C, H> {
     }
 }
 
-impl<C: Type, H: Type> Client<UnixStream, C, H> {
+impl<C: Type, H: Hash> Client<UnixStream, C, H> {
     pub async fn new(
         s: impl AsRef<std::path::Path>,
         content_name: impl AsRef<str>,
@@ -143,7 +143,7 @@ impl<C: Type, H: Type> Client<UnixStream, C, H> {
     }
 }
 
-impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Type>
+impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
     Store<'a, Socket, Contents, H>
 {
     pub async fn set<T: Type>(&self, key: &Key, value: T, info: Info) -> std::io::Result<()> {
@@ -162,7 +162,7 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Type>
     }
 }
 
-impl<H: Type + Clone> Commit<H> {
+impl<H: Hash> Commit<H> {
     pub async fn create<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         client: &Client<Socket, Contents, H>,
         node: &H,
@@ -175,7 +175,7 @@ impl<H: Type + Clone> Commit<H> {
     }
 }
 
-impl<T: Type, H: Type> Tree<T, H> {
+impl<T: Type, H: Hash> Tree<T, H> {
     pub async fn add<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -226,14 +226,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() -> std::io::Result<()> {
-        let client =
-            match Client::<Tcp, Bytes, HashRef<Blake2b>>::new("127.0.0.1:9181", "string").await {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Server error: {:?}", e);
-                    return skip();
-                }
-            };
+        let client = match Client::<Tcp, Bytes, Blake2b>::new("127.0.0.1:9181", "string").await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Server error: {:?}", e);
+                return skip();
+            }
+        };
         client.ping().await?;
         let key = Key::new(["a", "b", "c", "d"]);
         let store = client.store();
@@ -244,7 +243,7 @@ mod tests {
         assert_eq!(s, Some("testing".to_string()));
         store.remove(&key, Info::new()).await?;
 
-        let tree = Tree::<Bytes, HashRef<Blake2b>>::empty();
+        let tree = Tree::<Bytes, Blake2b>::empty();
         println!("{:?}", tree);
 
         let mut s = Vec::new();

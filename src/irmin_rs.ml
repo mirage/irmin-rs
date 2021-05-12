@@ -12,14 +12,6 @@ module Make (Store : Irmin.S) = struct
 
   let key_arg = Irmin.Type.(of_bin_string Store.key_t |> unstage)
 
-  module Threads = struct
-    let bind = Lwt.bind
-
-    let map = Lwt.map
-
-    let return = Lwt.return
-  end
-
   module Tree = struct
     let encode = Irmin.Type.(unstage (to_bin_string Store.Tree.concrete_t))
 

@@ -1,15 +1,41 @@
-use crate::{Hash, Type};
+use crate::Type;
 
-pub use blake2::{Blake2b, Digest};
-pub use sha1::Sha1;
+use blake2::Digest;
 
-#[derive(Debug, Clone)]
-pub struct HashRef<T: Hash>(pub(crate) Vec<u8>, pub(crate) std::marker::PhantomData<T>);
+macro_rules! hash_type {
+    ($x: ident) => {
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct $x(pub Vec<u8>);
+        impl AsRef<[u8]> for $x {
+            fn as_ref(&self) -> &[u8] {
+                self.0.as_ref()
+            }
+        }
 
-impl<T: Hash> PartialEq for HashRef<T> {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.eq(&other.0)
-    }
+        impl Type for $x {
+            fn encode_bin<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
+                w.write_all(&self.0)?;
+                Ok(Self::size())
+            }
+
+            fn decode_bin<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
+                let mut data = vec![0u8; Self::size()];
+                r.read_exact(data.as_mut_slice())?;
+                Ok($x(data))
+            }
+        }
+    };
+}
+
+hash_type!(Blake2b);
+hash_type!(Sha1);
+
+pub trait Hash: Type + Clone + Sized + PartialEq {
+    fn size() -> usize;
+
+    fn name() -> &'static str;
+
+    fn hash(x: impl AsRef<[u8]>) -> Self;
 }
 
 impl Hash for Blake2b {
@@ -17,9 +43,13 @@ impl Hash for Blake2b {
         64
     }
 
-    fn hash(s: impl AsRef<[u8]>) -> HashRef<Blake2b> {
+    fn name() -> &'static str {
+        "blake2b"
+    }
+
+    fn hash(s: impl AsRef<[u8]>) -> Self {
         let digest = blake2::Blake2b::digest(s.as_ref());
-        HashRef(digest.as_slice().to_vec(), std::marker::PhantomData)
+        Blake2b(digest.as_slice().to_vec())
     }
 }
 
@@ -28,38 +58,14 @@ impl Hash for Sha1 {
         20
     }
 
-    fn hash(s: impl AsRef<[u8]>) -> HashRef<Sha1> {
+    fn name() -> &'static str {
+        "sha1"
+    }
+
+    fn hash(s: impl AsRef<[u8]>) -> Self {
         let mut hash = sha1::Sha1::default();
         hash.update(s.as_ref());
         let digest = hash.digest();
-        HashRef(digest.bytes().to_vec(), std::marker::PhantomData)
-    }
-}
-
-impl<T: Hash> HashRef<T> {
-    pub fn hash(s: impl AsRef<[u8]>) -> HashRef<T> {
-        T::hash(s)
-    }
-
-    pub fn new(s: impl Into<Vec<u8>>) -> Option<HashRef<T>> {
-        let s = s.into();
-        if s.len() != T::size() {
-            return None;
-        }
-
-        Some(HashRef(s.into(), std::marker::PhantomData))
-    }
-}
-
-impl<T: Hash> Type for HashRef<T> {
-    fn encode_bin<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
-        w.write_all(&self.0)?;
-        Ok(T::size())
-    }
-
-    fn decode_bin<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
-        let mut data = vec![0u8; T::size()];
-        r.read_exact(data.as_mut_slice())?;
-        Ok(HashRef::new(data).unwrap())
+        Sha1(digest.bytes().to_vec())
     }
 }

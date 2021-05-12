@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 
 use crate as irmin;
-use crate::Type;
+use crate::{Hash, Type};
 
 #[derive(Debug, Clone, Type, PartialEq)]
-pub enum Tree<T: Type, H: Type> {
+pub enum Tree<T: Type, H: Hash> {
     Hash(H),
     Id(isize),
     Concrete(Concrete<T>),
@@ -16,7 +16,7 @@ pub enum Concrete<T> {
     Contents(T),
 }
 
-impl<T: Type, H: Type> Tree<T, H> {
+impl<T: Type, H: Hash> Tree<T, H> {
     pub fn empty() -> Self {
         Tree::Concrete(Concrete::empty())
     }
@@ -121,9 +121,3 @@ impl<T: Type> Concrete<T> {
         }
     }
 }
-
-/*impl<Hash: Type> Type for Tree<Hash> {
-    fn encode_bin<W: std::io::Write>(&self, w: W) -> std::io::Result<usize> {}
-
-    fn decode_bin<R: std::io::Read>(r: R) -> std::io::Result<Self> {}
-}*/

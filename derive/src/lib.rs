@@ -11,9 +11,9 @@ fn irmin_type_derive(s: synstructure::Structure) -> proc_macro2::TokenStream {
         let encode = s.each(|bi| quote!(count += #bi.encode_bin(dest)?;));
 
         let decode = s.variants().iter().map(|variant| {
-            let construct = variant.construct(|field, _idx| {
-                let t = &field.ty;
-                quote!(<#t as irmin::Type>::decode_bin(src)?)
+            let construct = variant.construct(|_field, _idx| {
+                //let t = &field.ty;
+                quote!(irmin::Type::decode_bin(src)?)
             });
 
             quote! {

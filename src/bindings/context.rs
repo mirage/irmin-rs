@@ -1,11 +1,22 @@
+use crate::Hash;
 use ocaml_interop::*;
 
 ocaml! {
     fn store_gen(store: Option<String>, contents: Option<String>, hash: Option<String>);
 }
 
+/// `Context` is the entrypoint into the OCaml runtime, it is needed when calling functions
+/// that call OCaml under the hood
 pub struct Context {
     pub(crate) rt: std::cell::RefCell<OCamlRuntime>,
+}
+
+impl Clone for Context {
+    fn clone(&self) -> Context {
+        let rt = std::cell::RefCell::new(OCamlRuntime::init());
+        let ctx = Context { rt };
+        ctx
+    }
 }
 
 impl Context {
@@ -17,6 +28,8 @@ impl Context {
     }
 }
 
+/// A `Builder` is used to create a `Context`, currently only one `Builder` per process is
+/// supported
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct Builder {
     store: Option<String>,
@@ -25,22 +38,26 @@ pub struct Builder {
 }
 
 impl Builder {
+    /// Instantiate a new `Builder` instance
     pub fn new() -> Builder {
         Self::default()
     }
 
+    /// Set store type
     pub fn with_store_type(mut self, s: impl Into<String>) -> Self {
         self.store = Some(s.into());
         self
     }
 
+    /// Set contents type
     pub fn with_content_type(mut self, s: impl Into<String>) -> Self {
         self.contents = Some(s.into());
         self
     }
 
-    pub fn with_hash(mut self, s: impl Into<String>) -> Self {
-        self.hash = Some(s.into());
+    /// Set hash type
+    pub fn with_hash<H: Hash>(mut self) -> Self {
+        self.hash = Some(H::name().into());
         self
     }
 
@@ -52,6 +69,7 @@ impl Builder {
         store_gen(cr, &store, &hash, &contents);
     }
 
+    /// Build a new `Context` using the specified store type
     pub fn build(self) -> Context {
         Context::new(self)
     }

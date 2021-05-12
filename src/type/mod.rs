@@ -21,12 +21,6 @@ pub trait Type: Sized {
     fn decode_bin<R: std::io::Read>(src: &mut R) -> std::io::Result<Self>;
 }
 
-pub trait Hash: Sized {
-    fn size() -> usize;
-
-    fn hash(x: impl AsRef<[u8]>) -> crate::HashRef<Self>;
-}
-
 fn encode_int<W: std::io::Write>(mut n: i64, dest: &mut W) -> std::io::Result<usize> {
     let mut count = 0;
 
