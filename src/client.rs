@@ -148,17 +148,44 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
 {
     pub async fn set<T: Type>(&self, key: &Key, value: T, info: Info) -> std::io::Result<()> {
         self.client.request("store.set", (key, info, value)).await?;
-        self.client.response::<()>().await
+        self.client.response().await
+    }
+
+    pub async fn set_tree<T: Type>(
+        &self,
+        key: &Key,
+        tree: &Tree<T, H>,
+        info: Info,
+    ) -> std::io::Result<()> {
+        self.client
+            .request("store.set_tree", (key, info, tree))
+            .await?;
+        self.client.response().await
     }
 
     pub async fn find<T: Type>(&self, key: &Key) -> std::io::Result<Option<T>> {
         self.client.request("store.find", key).await?;
-        self.client.response::<Option<T>>().await
+        self.client.response().await
+    }
+
+    pub async fn find_tree<T: Type>(&self, key: &Key) -> std::io::Result<Option<Tree<T, H>>> {
+        self.client.request("store.find_tree", key).await?;
+        self.client.response().await
+    }
+
+    pub async fn mem<T: Type>(&self, key: &Key) -> std::io::Result<bool> {
+        self.client.request("store.mem", key).await?;
+        self.client.response().await
+    }
+
+    pub async fn mem_tree<T: Type>(&self, key: &Key) -> std::io::Result<bool> {
+        self.client.request("store.mem_tree", key).await?;
+        self.client.response().await
     }
 
     pub async fn remove(&self, key: &Key, info: Info) -> std::io::Result<()> {
         self.client.request("store.remove", (key, info)).await?;
-        self.client.response::<()>().await
+        self.client.response().await
     }
 }
 
@@ -171,7 +198,7 @@ impl<H: Hash> Commit<H> {
     ) -> std::io::Result<Commit<H>> {
         let parents = parents.into();
         client.request("commit.v", (info, parents, node)).await?;
-        client.response::<Commit<H>>().await
+        client.response().await
     }
 }
 
@@ -183,7 +210,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         value: &T,
     ) -> std::io::Result<Tree<T, H>> {
         client.request("tree.add", (self, key, value)).await?;
-        client.response::<Tree<T, H>>().await
+        client.response().await
     }
 
     pub async fn remove<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
@@ -192,7 +219,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         key: &Key,
     ) -> std::io::Result<Tree<T, H>> {
         client.request("tree.remove", (self, key)).await?;
-        client.response::<Tree<T, H>>().await
+        client.response().await
     }
 
     pub async fn find<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
@@ -201,7 +228,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         key: &Key,
     ) -> std::io::Result<Option<T>> {
         client.request("tree.find", (self, key)).await?;
-        client.response::<Option<T>>().await
+        client.response().await
     }
 
     pub async fn find_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
@@ -210,7 +237,25 @@ impl<T: Type, H: Hash> Tree<T, H> {
         key: &Key,
     ) -> std::io::Result<Option<Tree<T, H>>> {
         client.request("tree.find_tree", (self, key)).await?;
-        client.response::<Option<Tree<T, H>>>().await
+        client.response().await
+    }
+
+    pub async fn mem<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
+        &self,
+        client: &Client<Socket, Contents, H>,
+        key: &Key,
+    ) -> std::io::Result<bool> {
+        client.request("tree.mem", (self, key)).await?;
+        client.response().await
+    }
+
+    pub async fn mem_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
+        &self,
+        client: &Client<Socket, Contents, H>,
+        key: &Key,
+    ) -> std::io::Result<bool> {
+        client.request("tree.mem_tree", (self, key)).await?;
+        client.response().await
     }
 }
 

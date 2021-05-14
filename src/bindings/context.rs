@@ -8,12 +8,12 @@ ocaml! {
 /// `Context` is the entrypoint into the OCaml runtime, it is needed when calling functions
 /// that call OCaml under the hood
 pub struct Context {
-    pub(crate) rt: std::cell::RefCell<OCamlRuntime>,
+    pub(crate) rt: OCamlRuntime,
 }
 
 impl Clone for Context {
     fn clone(&self) -> Context {
-        let rt = std::cell::RefCell::new(OCamlRuntime::init());
+        let rt = OCamlRuntime::init();
         let ctx = Context { rt };
         ctx
     }
@@ -21,9 +21,9 @@ impl Clone for Context {
 
 impl Context {
     fn new(gen: Builder) -> Context {
-        let rt = std::cell::RefCell::new(OCamlRuntime::init());
-        let ctx = Context { rt };
-        gen.build_with_context(&ctx);
+        let rt = OCamlRuntime::init();
+        let mut ctx = Context { rt };
+        gen.build_with_context(&mut ctx);
         ctx
     }
 }
@@ -57,12 +57,13 @@ impl Builder {
 
     /// Set hash type
     pub fn with_hash<H: Hash>(mut self) -> Self {
+        // TODO: ensure this matches the store hash type
         self.hash = Some(H::name().into());
         self
     }
 
-    fn build_with_context(self, ctx: &Context) {
-        let cr = &mut ctx.rt.borrow_mut();
+    fn build_with_context(self, ctx: &mut Context) {
+        let cr = &mut ctx.rt;
         let store = self.store.to_ocaml(cr).root();
         let hash = self.hash.to_ocaml(cr).root();
         let contents = self.contents.to_ocaml(cr).root();

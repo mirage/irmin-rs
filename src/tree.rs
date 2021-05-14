@@ -70,7 +70,7 @@ impl<T: Type> Concrete<T> {
         }
     }
 
-    pub fn add(&mut self, key: impl Into<String>, value: T) {
+    pub fn add_step(&mut self, key: impl Into<String>, value: T) {
         match self {
             Concrete::Tree(t) => {
                 let value = Concrete::Contents(value);
@@ -78,24 +78,24 @@ impl<T: Type> Concrete<T> {
             }
             Concrete::Contents(_) => {
                 *self = Self::empty();
-                self.add(key, value);
+                self.add_step(key, value);
             }
         }
     }
 
-    pub fn add_tree(&mut self, key: impl Into<String>, tree: Concrete<T>) {
+    pub fn add_tree_step(&mut self, key: impl Into<String>, tree: Concrete<T>) {
         match self {
             Concrete::Tree(t) => {
                 t.insert(key.into(), tree);
             }
             Concrete::Contents(_) => {
                 *self = Self::empty();
-                self.add_tree(key, tree);
+                self.add_tree_step(key, tree);
             }
         }
     }
 
-    pub fn remove(&mut self, key: impl AsRef<str>) {
+    pub fn remove_step(&mut self, key: impl AsRef<str>) {
         match self {
             Concrete::Tree(t) => {
                 t.remove(key.as_ref());
@@ -104,14 +104,14 @@ impl<T: Type> Concrete<T> {
         }
     }
 
-    pub fn mem(&self, key: impl AsRef<str>) -> bool {
+    pub fn mem_step(&self, key: impl AsRef<str>) -> bool {
         match self {
             Concrete::Tree(t) => t.contains_key(key.as_ref()),
             _ => false,
         }
     }
 
-    pub fn mem_tree(&self, key: impl AsRef<str>) -> bool {
+    pub fn mem_tree_step(&self, key: impl AsRef<str>) -> bool {
         match self {
             Concrete::Tree(t) => match t.get(key.as_ref()) {
                 Some(Concrete::Tree(_)) => true,

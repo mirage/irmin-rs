@@ -470,7 +470,7 @@ mod tests {
     #[test]
     fn test_tree1() {
         let mut t: Concrete<Str> = Concrete::empty();
-        t.add("foo", "bar".into());
+        t.add_step("foo", "bar".into());
 
         let data = include_bytes!("../../tests/tree1.bin");
         let mut output = Vec::new();

@@ -36,23 +36,23 @@ mod tests {
 
     #[test]
     fn basic() {
-        let ctx = Builder::new().with_store_type("mem").build();
-        let cfg = Config::new(&ctx, "test123");
-        let repo = Repo::new(&ctx, &cfg);
-        let master = Store::master(&ctx, &repo);
+        let mut ctx = Builder::new().with_store_type("mem").build();
+        let cfg = Config::new(&mut ctx, "test123");
+        let repo = Repo::new(&mut ctx, &cfg);
+        let master = Store::master(&mut ctx, &repo);
         let key = Key::new(&["a", "b", "c"]);
-        let x = master.find(&ctx, &key);
+        let x = master.find(&mut ctx, &key);
         assert!(x.is_none());
 
-        master.set(&ctx, &key, "123", "test");
+        master.set(&mut ctx, &key, "123", "test");
 
-        let x = master.find(&ctx, &key).unwrap();
+        let x = master.find(&mut ctx, &key).unwrap();
         assert!(x.as_str() == "123");
 
-        let t = Tree::empty(&ctx);
+        let t = Tree::empty(&mut ctx);
         let foo_key = Key::new(&["foo"]);
-        assert!(!t.mem(&ctx, &foo_key));
-        let t = t.add(&ctx, &foo_key, "bar");
-        assert!(t.mem(&ctx, &foo_key));
+        assert!(!t.mem(&mut ctx, &foo_key));
+        let t = t.add(&mut ctx, &foo_key, "bar");
+        assert!(t.mem(&mut ctx, &foo_key));
     }
 }

@@ -9,8 +9,8 @@ ocaml! {
 }
 
 impl Config {
-    pub fn new(ctx: &Context, root: impl AsRef<str>) -> Config {
-        let cr = &mut ctx.rt.borrow_mut();
+    pub fn new(ctx: &mut Context, root: impl AsRef<str>) -> Config {
+        let cr = &mut ctx.rt;
         let root = root.as_ref().to_ocaml(cr).root();
         let x: BoxRoot<Config> = config(cr, &root);
         x.to_rust(cr)

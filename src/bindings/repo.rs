@@ -9,8 +9,8 @@ ocaml! {
 }
 
 impl Repo {
-    pub fn new(ctx: &Context, cfg: &Config) -> Repo {
-        let cr = &mut ctx.rt.borrow_mut();
+    pub fn new(ctx: &mut Context, cfg: &Config) -> Repo {
+        let cr = &mut ctx.rt;
         let cfg = cfg.to_ocaml(cr).root();
         let x: BoxRoot<Repo> = repo(cr, &cfg);
         x.to_rust(cr)
