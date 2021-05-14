@@ -1,4 +1,5 @@
 (executable
-  (name gen)
-  (libraries repr lwt.unix)
-  (preprocess (pps ppx_repr)))
+ (name gen)
+ (libraries repr irmin.mem lwt.unix)
+ (preprocess
+  (pps ppx_repr)))

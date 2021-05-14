@@ -1,6 +1,13 @@
+#[derive(Debug, PartialOrd)]
 pub enum Bytes<'a> {
     Owned(Vec<u8>),
     Ref(&'a [u8]),
+}
+
+impl<'a> PartialEq for Bytes<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
 }
 
 impl<'a> AsRef<[u8]> for Bytes<'a> {

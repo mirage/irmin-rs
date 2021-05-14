@@ -1,44 +1,71 @@
-use crate::{Fixed, Type};
+use crate::Type;
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Hash<T: Fixed>(pub(crate) String, pub(crate) std::marker::PhantomData<T>);
+use blake2::Digest;
 
-pub struct Blake2b;
-pub struct Sha1;
-
-impl Fixed for Blake2b {
-    const SIZE: usize = 64;
-}
-
-impl Fixed for Sha1 {
-    const SIZE: usize = 20;
-}
-
-impl<T: Fixed> Hash<T> {
-    pub(crate) fn from_string(s: impl Into<String>) -> Hash<T> {
-        Hash(s.into(), std::marker::PhantomData)
-    }
-
-    pub fn new(s: impl Into<String>) -> Option<Hash<T>> {
-        let s = s.into();
-        if s.len() != T::SIZE {
-            return None;
+macro_rules! hash_type {
+    ($x: ident) => {
+        #[derive(Debug, Clone, PartialEq)]
+        pub struct $x(pub Vec<u8>);
+        impl AsRef<[u8]> for $x {
+            fn as_ref(&self) -> &[u8] {
+                self.0.as_ref()
+            }
         }
 
-        Some(Hash::from_string(s))
+        impl Type for $x {
+            fn encode_bin<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
+                w.write_all(&self.0)?;
+                Ok(Self::size())
+            }
+
+            fn decode_bin<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
+                let mut data = vec![0u8; Self::size()];
+                r.read_exact(data.as_mut_slice())?;
+                Ok($x(data))
+            }
+        }
+    };
+}
+
+hash_type!(Blake2b);
+hash_type!(Sha1);
+
+pub trait Hash: Type + Clone + Sized + PartialEq {
+    fn size() -> usize;
+
+    fn name() -> &'static str;
+
+    fn hash(x: impl AsRef<[u8]>) -> Self;
+}
+
+impl Hash for Blake2b {
+    fn size() -> usize {
+        64
+    }
+
+    fn name() -> &'static str {
+        "blake2b"
+    }
+
+    fn hash(s: impl AsRef<[u8]>) -> Self {
+        let digest = blake2::Blake2b::digest(s.as_ref());
+        Blake2b(digest.as_slice().to_vec())
     }
 }
 
-impl<T: Fixed> Type for Hash<T> {
-    fn encode_bin<W: std::io::Write>(&self, mut w: W) -> std::io::Result<usize> {
-        w.write_all(self.0.as_bytes())?;
-        Ok(T::SIZE)
+impl Hash for Sha1 {
+    fn size() -> usize {
+        20
     }
 
-    fn decode_bin<R: std::io::Read>(mut r: R) -> std::io::Result<Self> {
-        let mut data = vec![0u8; T::SIZE];
-        r.read_exact(data.as_mut_slice())?;
-        let s = String::from_utf8_lossy(&data).to_string();
-        Ok(Hash::from_string(s))
+    fn name() -> &'static str {
+        "sha1"
+    }
+
+    fn hash(s: impl AsRef<[u8]>) -> Self {
+        let mut hash = sha1::Sha1::default();
+        hash.update(s.as_ref());
+        let digest = hash.digest();
+        Sha1(digest.bytes().to_vec())
     }
 }

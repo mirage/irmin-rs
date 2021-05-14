@@ -1,6 +1,13 @@
+#[derive(Debug, PartialOrd)]
 pub enum Array<'a, T> {
     Owned(Vec<T>),
     Ref(&'a [T]),
+}
+
+impl<'a, T: PartialEq> PartialEq for Array<'a, T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
 }
 
 impl<'a, T> Array<'a, T> {

@@ -1,6 +1,13 @@
+#[derive(Debug, PartialOrd)]
 pub enum Str<'a> {
     Owned(String),
     Ref(&'a str),
+}
+
+impl<'a> PartialEq for Str<'a> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_ref() == other.as_ref()
+    }
 }
 
 impl<'a> Str<'a> {
