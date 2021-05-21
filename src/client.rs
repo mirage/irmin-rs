@@ -10,11 +10,13 @@ use blake2::Digest;
 pub type Tcp = TcpStream;
 pub type Unix = UnixStream;
 
+/// irmin-server client implementation
 pub struct Client<Socket, Contents: Type, H: Hash> {
     conn: RefCell<BufStream<Socket>>,
     _t: std::marker::PhantomData<(Contents, H)>,
 }
 
+/// Wrapper around `Client` to provide access to methods defined for stores
 pub struct Store<'a, Socket, Contents: Type, H: Hash> {
     client: &'a Client<Socket, Contents, H>,
 }
@@ -46,11 +48,6 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Soc
                 "Invalid handshake",
             ));
         }
-        Ok(())
-    }
-
-    pub async fn close(self) -> std::io::Result<()> {
-        self.conn.into_inner().shutdown().await?;
         Ok(())
     }
 
@@ -100,18 +97,31 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Soc
         }
     }
 
+    /// Close the client
+    pub async fn close(self) -> std::io::Result<()> {
+        self.conn.into_inner().shutdown().await?;
+        Ok(())
+    }
+
+    /// Ping the server, used to check to ensure the client is connected
     pub async fn ping(&self) -> std::io::Result<()> {
         self.request("ping", ()).await?;
         self.response::<()>().await?;
         Ok(())
     }
 
+    /// Access store methods
     pub fn store<'a>(&'a self) -> Store<'a, Socket, Contents, H> {
         Store { client: self }
     }
 }
 
 impl<C: Type, H: Hash> Client<TcpStream, C, H> {
+    /// Create a new client connected to a TCP server
+    ///
+    /// Note: The `content_name` parameter is used by the handshake function to determine if the client
+    /// has the same type, so this must match. For now it is up to you to make sure this matches
+    /// your Rust type, however in the future this will be handled by the `Type` trait
     pub async fn new(
         s: impl ToSocketAddrs,
         content_name: impl AsRef<str>,
@@ -128,6 +138,11 @@ impl<C: Type, H: Hash> Client<TcpStream, C, H> {
 }
 
 impl<C: Type, H: Hash> Client<UnixStream, C, H> {
+    /// Create a new client connected to a Unix socket
+    ///
+    /// Note: The `content_name` parameter is used by the handshake function to determine if the client
+    /// has the same type, so this must match. For now it is up to you to make sure this matches
+    /// your Rust type, however in the future this will be handled by the `Type` trait
     pub async fn new(
         s: impl AsRef<std::path::Path>,
         content_name: impl AsRef<str>,
@@ -146,11 +161,13 @@ impl<C: Type, H: Hash> Client<UnixStream, C, H> {
 impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
     Store<'a, Socket, Contents, H>
 {
+    /// Set the value associated with a key
     pub async fn set<T: Type>(&self, key: &Key, value: T, info: Info) -> std::io::Result<()> {
         self.client.request("store.set", (key, info, value)).await?;
         self.client.response().await
     }
 
+    /// Set the tree associated with a key
     pub async fn set_tree<T: Type>(
         &self,
         key: &Key,
@@ -163,26 +180,31 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
         self.client.response().await
     }
 
+    /// Find a value in the store
     pub async fn find<T: Type>(&self, key: &Key) -> std::io::Result<Option<T>> {
         self.client.request("store.find", key).await?;
         self.client.response().await
     }
 
+    /// Find a tree in the store
     pub async fn find_tree<T: Type>(&self, key: &Key) -> std::io::Result<Option<Tree<T, H>>> {
         self.client.request("store.find_tree", key).await?;
         self.client.response().await
     }
 
+    /// Check if a key is set to a value
     pub async fn mem<T: Type>(&self, key: &Key) -> std::io::Result<bool> {
         self.client.request("store.mem", key).await?;
         self.client.response().await
     }
 
+    /// Check if a key is set to a tree
     pub async fn mem_tree<T: Type>(&self, key: &Key) -> std::io::Result<bool> {
         self.client.request("store.mem_tree", key).await?;
         self.client.response().await
     }
 
+    /// Remove the value associated with a key
     pub async fn remove(&self, key: &Key, info: Info) -> std::io::Result<()> {
         self.client.request("store.remove", (key, info)).await?;
         self.client.response().await
@@ -190,6 +212,7 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
 }
 
 impl<H: Hash> Commit<H> {
+    /// Create a new commit
     pub async fn create<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         client: &Client<Socket, Contents, H>,
         node: &H,
@@ -203,6 +226,7 @@ impl<H: Hash> Commit<H> {
 }
 
 impl<T: Type, H: Hash> Tree<T, H> {
+    /// Add value to tree
     pub async fn add<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -213,6 +237,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Remove key from tree
     pub async fn remove<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -222,6 +247,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Find value in tree
     pub async fn find<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -231,6 +257,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Find tree in tree
     pub async fn find_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -240,6 +267,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Check if tree key is a value
     pub async fn mem<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -249,6 +277,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Check if tree key is a tree
     pub async fn mem_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
