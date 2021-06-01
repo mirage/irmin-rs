@@ -114,6 +114,19 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Soc
     pub fn store<'a>(&'a self) -> Store<'a, Socket, Contents, H> {
         Store { client: self }
     }
+
+    /// Set the client's branch
+    pub async fn set_current_branch(&self, branch: impl AsRef<str>) -> std::io::Result<()> {
+        self.request("set_current_branch", branch.as_ref()).await?;
+        self.response::<()>().await?;
+        Ok(())
+    }
+
+    /// Get the client's branch
+    pub async fn get_current_branch(&self) -> std::io::Result<String> {
+        self.request("get_current_branch", ()).await?;
+        self.response::<String>().await
+    }
 }
 
 impl<C: Type, H: Hash> Client<TcpStream, C, H> {
@@ -223,6 +236,14 @@ impl<H: Hash> Commit<H> {
         client.request("commit.v", (info, parents, node)).await?;
         client.response().await
     }
+
+    pub async fn of_hash<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
+        client: &Client<Socket, Contents, H>,
+        hash: &H,
+    ) -> std::io::Result<Option<Commit<H>>> {
+        client.request("commit.of_hash", hash).await?;
+        client.response().await
+    }
 }
 
 impl<T: Type, H: Hash> Tree<T, H> {
@@ -234,6 +255,17 @@ impl<T: Type, H: Hash> Tree<T, H> {
         value: &T,
     ) -> std::io::Result<Tree<T, H>> {
         client.request("tree.add", (self, key, value)).await?;
+        client.response().await
+    }
+
+    /// Add tree to tree
+    pub async fn add_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
+        &self,
+        client: &Client<Socket, Contents, H>,
+        key: &Key,
+        tree: &Tree<T, H>,
+    ) -> std::io::Result<Tree<T, H>> {
+        client.request("tree.add_tree", (self, key, tree)).await?;
         client.response().await
     }
 
