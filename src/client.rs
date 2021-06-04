@@ -21,27 +21,28 @@ pub struct Store<'a, Socket, Contents: Type, H: Hash> {
     client: &'a Client<Socket, Contents, H>,
 }
 
+const V1: &str = "V1";
+
 impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Socket, Contents, H> {
-    async fn write_handshake(&self, content_name: &str) -> std::io::Result<()> {
+    async fn write_handshake(&self) -> std::io::Result<()> {
         let mut conn = self.conn.borrow_mut();
-        let hash = format!("{:x}\n", blake2::Blake2b::digest(content_name.as_bytes()));
+        let hash = format!("{:x}\n", blake2::Blake2b::digest(V1.as_bytes()));
         conn.write_all(hash.as_bytes()).await?;
         conn.flush().await?;
         Ok(())
     }
 
-    async fn read_handshake(&self, content_name: &str) -> std::io::Result<bool> {
+    async fn read_handshake(&self) -> std::io::Result<bool> {
         let mut conn = self.conn.borrow_mut();
         let mut line = String::new();
         conn.read_line(&mut line).await?;
-        let hash = format!("{:x}\n", blake2::Blake2b::digest(content_name.as_bytes()));
+        let hash = format!("{:x}\n", blake2::Blake2b::digest(V1.as_bytes()));
         Ok(line == hash)
     }
 
-    async fn do_handshake(&self, content_name: impl AsRef<str>) -> std::io::Result<()> {
-        let content_name = content_name.as_ref();
-        self.write_handshake(content_name).await?;
-        let ok = self.read_handshake(content_name).await?;
+    async fn do_handshake(&self) -> std::io::Result<()> {
+        self.write_handshake().await?;
+        let ok = self.read_handshake().await?;
         if !ok {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::ConnectionRefused,
@@ -131,42 +132,28 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Soc
 
 impl<C: Type, H: Hash> Client<TcpStream, C, H> {
     /// Create a new client connected to a TCP server
-    ///
-    /// Note: The `content_name` parameter is used by the handshake function to determine if the client
-    /// has the same type, so this must match. For now it is up to you to make sure this matches
-    /// your Rust type, however in the future this will be handled by the `Type` trait
-    pub async fn new(
-        s: impl ToSocketAddrs,
-        content_name: impl AsRef<str>,
-    ) -> std::io::Result<Client<TcpStream, C, H>> {
+    pub async fn new(s: impl ToSocketAddrs) -> std::io::Result<Client<TcpStream, C, H>> {
         let conn = TcpStream::connect(s).await?;
         let conn = RefCell::new(BufStream::new(conn));
         let client = Client {
             conn,
             _t: std::marker::PhantomData,
         };
-        client.do_handshake(content_name).await?;
+        client.do_handshake().await?;
         Ok(client)
     }
 }
 
 impl<C: Type, H: Hash> Client<UnixStream, C, H> {
     /// Create a new client connected to a Unix socket
-    ///
-    /// Note: The `content_name` parameter is used by the handshake function to determine if the client
-    /// has the same type, so this must match. For now it is up to you to make sure this matches
-    /// your Rust type, however in the future this will be handled by the `Type` trait
-    pub async fn new(
-        s: impl AsRef<std::path::Path>,
-        content_name: impl AsRef<str>,
-    ) -> std::io::Result<Client<UnixStream, C, H>> {
+    pub async fn new(s: impl AsRef<std::path::Path>) -> std::io::Result<Client<UnixStream, C, H>> {
         let conn = UnixStream::connect(s).await?;
         let conn = RefCell::new(BufStream::new(conn));
         let client = Client {
             conn,
             _t: std::marker::PhantomData,
         };
-        client.do_handshake(content_name).await?;
+        client.do_handshake().await?;
         Ok(client)
     }
 }
@@ -332,7 +319,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() -> std::io::Result<()> {
-        let client = match Client::<Tcp, Bytes, Blake2b>::new("127.0.0.1:9181", "string").await {
+        let client = match Client::<Tcp, Bytes, Blake2b>::new("127.0.0.1:9181").await {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("Server error: {:?}", e);
