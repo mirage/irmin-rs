@@ -10,47 +10,45 @@ use blake2::Digest;
 pub type Tcp = TcpStream;
 pub type Unix = UnixStream;
 
+/// irmin-server client implementation
 pub struct Client<Socket, Contents: Type, H: Hash> {
     conn: RefCell<BufStream<Socket>>,
     _t: std::marker::PhantomData<(Contents, H)>,
 }
 
+/// Wrapper around `Client` to provide access to methods defined for stores
 pub struct Store<'a, Socket, Contents: Type, H: Hash> {
     client: &'a Client<Socket, Contents, H>,
 }
 
+const V1: &str = "V1";
+
 impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Socket, Contents, H> {
-    async fn write_handshake(&self, content_name: &str) -> std::io::Result<()> {
+    async fn write_handshake(&self) -> std::io::Result<()> {
         let mut conn = self.conn.borrow_mut();
-        let hash = format!("{:x}\n", blake2::Blake2b::digest(content_name.as_bytes()));
+        let hash = format!("{:x}\n", blake2::Blake2b::digest(V1.as_bytes()));
         conn.write_all(hash.as_bytes()).await?;
         conn.flush().await?;
         Ok(())
     }
 
-    async fn read_handshake(&self, content_name: &str) -> std::io::Result<bool> {
+    async fn read_handshake(&self) -> std::io::Result<bool> {
         let mut conn = self.conn.borrow_mut();
         let mut line = String::new();
         conn.read_line(&mut line).await?;
-        let hash = format!("{:x}\n", blake2::Blake2b::digest(content_name.as_bytes()));
+        let hash = format!("{:x}\n", blake2::Blake2b::digest(V1.as_bytes()));
         Ok(line == hash)
     }
 
-    async fn do_handshake(&self, content_name: impl AsRef<str>) -> std::io::Result<()> {
-        let content_name = content_name.as_ref();
-        self.write_handshake(content_name).await?;
-        let ok = self.read_handshake(content_name).await?;
+    async fn do_handshake(&self) -> std::io::Result<()> {
+        self.write_handshake().await?;
+        let ok = self.read_handshake().await?;
         if !ok {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::ConnectionRefused,
                 "Invalid handshake",
             ));
         }
-        Ok(())
-    }
-
-    pub async fn close(self) -> std::io::Result<()> {
-        self.conn.into_inner().shutdown().await?;
         Ok(())
     }
 
@@ -100,45 +98,62 @@ impl<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash> Client<Soc
         }
     }
 
+    /// Close the client
+    pub async fn close(self) -> std::io::Result<()> {
+        self.conn.into_inner().shutdown().await?;
+        Ok(())
+    }
+
+    /// Ping the server, used to check to ensure the client is connected
     pub async fn ping(&self) -> std::io::Result<()> {
         self.request("ping", ()).await?;
         self.response::<()>().await?;
         Ok(())
     }
 
+    /// Access store methods
     pub fn store<'a>(&'a self) -> Store<'a, Socket, Contents, H> {
         Store { client: self }
+    }
+
+    /// Set the client's branch
+    pub async fn set_current_branch(&self, branch: impl AsRef<str>) -> std::io::Result<()> {
+        self.request("set_current_branch", branch.as_ref()).await?;
+        self.response::<()>().await?;
+        Ok(())
+    }
+
+    /// Get the client's branch
+    pub async fn get_current_branch(&self) -> std::io::Result<String> {
+        self.request("get_current_branch", ()).await?;
+        self.response::<String>().await
     }
 }
 
 impl<C: Type, H: Hash> Client<TcpStream, C, H> {
-    pub async fn new(
-        s: impl ToSocketAddrs,
-        content_name: impl AsRef<str>,
-    ) -> std::io::Result<Client<TcpStream, C, H>> {
+    /// Create a new client connected to a TCP server
+    pub async fn new(s: impl ToSocketAddrs) -> std::io::Result<Client<TcpStream, C, H>> {
         let conn = TcpStream::connect(s).await?;
         let conn = RefCell::new(BufStream::new(conn));
         let client = Client {
             conn,
             _t: std::marker::PhantomData,
         };
-        client.do_handshake(content_name).await?;
+        client.do_handshake().await?;
         Ok(client)
     }
 }
 
 impl<C: Type, H: Hash> Client<UnixStream, C, H> {
-    pub async fn new(
-        s: impl AsRef<std::path::Path>,
-        content_name: impl AsRef<str>,
-    ) -> std::io::Result<Client<UnixStream, C, H>> {
+    /// Create a new client connected to a Unix socket
+    pub async fn new(s: impl AsRef<std::path::Path>) -> std::io::Result<Client<UnixStream, C, H>> {
         let conn = UnixStream::connect(s).await?;
         let conn = RefCell::new(BufStream::new(conn));
         let client = Client {
             conn,
             _t: std::marker::PhantomData,
         };
-        client.do_handshake(content_name).await?;
+        client.do_handshake().await?;
         Ok(client)
     }
 }
@@ -146,11 +161,13 @@ impl<C: Type, H: Hash> Client<UnixStream, C, H> {
 impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
     Store<'a, Socket, Contents, H>
 {
+    /// Set the value associated with a key
     pub async fn set<T: Type>(&self, key: &Key, value: T, info: Info) -> std::io::Result<()> {
         self.client.request("store.set", (key, info, value)).await?;
         self.client.response().await
     }
 
+    /// Set the tree associated with a key
     pub async fn set_tree<T: Type>(
         &self,
         key: &Key,
@@ -163,26 +180,31 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
         self.client.response().await
     }
 
+    /// Find a value in the store
     pub async fn find<T: Type>(&self, key: &Key) -> std::io::Result<Option<T>> {
         self.client.request("store.find", key).await?;
         self.client.response().await
     }
 
+    /// Find a tree in the store
     pub async fn find_tree<T: Type>(&self, key: &Key) -> std::io::Result<Option<Tree<T, H>>> {
         self.client.request("store.find_tree", key).await?;
         self.client.response().await
     }
 
+    /// Check if a key is set to a value
     pub async fn mem<T: Type>(&self, key: &Key) -> std::io::Result<bool> {
         self.client.request("store.mem", key).await?;
         self.client.response().await
     }
 
+    /// Check if a key is set to a tree
     pub async fn mem_tree<T: Type>(&self, key: &Key) -> std::io::Result<bool> {
         self.client.request("store.mem_tree", key).await?;
         self.client.response().await
     }
 
+    /// Remove the value associated with a key
     pub async fn remove(&self, key: &Key, info: Info) -> std::io::Result<()> {
         self.client.request("store.remove", (key, info)).await?;
         self.client.response().await
@@ -190,6 +212,7 @@ impl<'a, Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type, H: Hash>
 }
 
 impl<H: Hash> Commit<H> {
+    /// Create a new commit
     pub async fn create<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         client: &Client<Socket, Contents, H>,
         node: &H,
@@ -200,9 +223,18 @@ impl<H: Hash> Commit<H> {
         client.request("commit.v", (info, parents, node)).await?;
         client.response().await
     }
+
+    pub async fn of_hash<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
+        client: &Client<Socket, Contents, H>,
+        hash: &H,
+    ) -> std::io::Result<Option<Commit<H>>> {
+        client.request("commit.of_hash", hash).await?;
+        client.response().await
+    }
 }
 
 impl<T: Type, H: Hash> Tree<T, H> {
+    /// Add value to tree
     pub async fn add<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -213,6 +245,18 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Add tree to tree
+    pub async fn add_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
+        &self,
+        client: &Client<Socket, Contents, H>,
+        key: &Key,
+        tree: &Tree<T, H>,
+    ) -> std::io::Result<Tree<T, H>> {
+        client.request("tree.add_tree", (self, key, tree)).await?;
+        client.response().await
+    }
+
+    /// Remove key from tree
     pub async fn remove<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -222,6 +266,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Find value in tree
     pub async fn find<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -231,6 +276,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Find tree in tree
     pub async fn find_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -240,6 +286,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Check if tree key is a value
     pub async fn mem<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -249,6 +296,7 @@ impl<T: Type, H: Hash> Tree<T, H> {
         client.response().await
     }
 
+    /// Check if tree key is a tree
     pub async fn mem_tree<Socket: Unpin + AsyncRead + AsyncWrite, Contents: Type>(
         &self,
         client: &Client<Socket, Contents, H>,
@@ -271,7 +319,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_client() -> std::io::Result<()> {
-        let client = match Client::<Tcp, Bytes, Blake2b>::new("127.0.0.1:9181", "string").await {
+        let client = match Client::<Tcp, Bytes, Blake2b>::new("127.0.0.1:9181").await {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("Server error: {:?}", e);
