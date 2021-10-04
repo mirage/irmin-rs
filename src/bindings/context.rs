@@ -67,7 +67,7 @@ impl Builder {
         let store = self.store.to_ocaml(cr).root();
         let hash = self.hash.to_ocaml(cr).root();
         let contents = self.contents.to_ocaml(cr).root();
-        store_gen(cr, &store, &hash, &contents);
+        store_gen(cr, &store, &contents, &hash);
     }
 
     /// Build a new `Context` using the specified store type

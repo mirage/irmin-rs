@@ -84,8 +84,8 @@ end
 
 let store_gen store contents hash =
   let hash = Option.map Irmin_unix.Resolver.Hash.find hash in
-  let t, _ = Irmin_unix.Resolver.load_config ~store ~hash ~contents () in
-  let (module Store : Irmin.S), _ = Irmin_unix.Resolver.Store.destruct t in
+  let t, _ = Irmin_unix.Resolver.load_config ?store ?hash ?contents () in
+  let (module Store : Irmin.S), _, _ = Irmin_unix.Resolver.Store.destruct t in
   let module OCaml = Make (Store) in
   List.iter
     (fun (name, OCaml.Function f) -> Callback.register name f)
