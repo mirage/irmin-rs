@@ -40,6 +40,35 @@ fn main() {
             .join("_build")
             .join("default")
             .join("irmin.h")
+    } else if PathBuf::from("_opam")
+        .join("lib")
+        .join("libirmin")
+        .join("lib")
+        .join("libirmin.so")
+        .exists()
+    {
+        // Using opam
+        println!(
+            "cargo:rustc-link-arg=-Wl,-rpath,{}",
+            PathBuf::from("_opam")
+                .join("lib")
+                .join("libirmin")
+                .join("lib")
+                .display()
+        );
+        println!(
+            "cargo:rustc-link-search={}",
+            PathBuf::from("_opam")
+                .join("lib")
+                .join("libirmin")
+                .join("lib")
+                .display()
+        );
+        PathBuf::from("_opam")
+            .join("lib")
+            .join("libirmin")
+            .join("include")
+            .join("irmin.h")
     } else if opam_prefix
         .join("lib")
         .join("libirmin")
