@@ -26,7 +26,7 @@ jobs:
       - name: Use OCaml ${{ matrix.ocaml-version }}
         uses: avsm/setup-ocaml@v2
         with:
-          ocaml-version: ${{ matrix.ocaml-compiler}}
+          ocaml-compiler: ${{ matrix.ocaml-compiler}}
 
       - run: curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
       - run: "opam pin add libirmin.dev git+https://github.com/zshipko/libirmin.git --no-action"
