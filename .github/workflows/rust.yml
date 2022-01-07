@@ -1,0 +1,35 @@
+name: libirmin
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  rust:
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - macos-latest
+          - ubuntu-latest
+        ocaml-compiler:
+          - 4.13.1
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Use OCaml ${{ matrix.ocaml-version }}
+        uses: avsm/setup-ocaml@v2
+        with:
+          ocaml-version: ${{ matrix.ocaml-compiler}}
+
+      - run: curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
+      - run: "opam pin add libirmin.dev git+https://github.com/zshipko/libirmin.git --no-action"
+      - run: opam install libirmin
+      - run: opam exec -- make test
+

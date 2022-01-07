@@ -1,123 +1,114 @@
-use std::collections::BTreeMap;
+use crate::internal::*;
 
-use crate as irmin;
-use crate::{Hash, Type};
-
-#[derive(Debug, Clone, Type, PartialEq)]
-pub enum Tree<T: Type, H: Hash> {
-    Hash(H),
-    Id(isize),
-    Concrete(Concrete<T>),
+/// Wrapper around irmin trees
+pub struct Tree<'a, T: Contents> {
+    pub ptr: *mut IrminTree,
+    pub repo: &'a Repo<T>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum Concrete<T> {
-    Tree(BTreeMap<String, Concrete<T>>),
-    Contents(T),
-}
-
-impl<T: Type, H: Hash> Tree<T, H> {
-    pub fn empty() -> Self {
-        Tree::Concrete(Concrete::empty())
+impl<'a, T: Contents> Drop for Tree<'a, T> {
+    fn drop(&mut self) {
+        unsafe { irmin_tree_free(self.ptr) }
     }
 }
 
-impl<T: Type> Type for Concrete<T> {
-    fn encode_bin<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
-        match self {
-            Concrete::Contents(v) => {
-                let mut n = 1usize.encode_bin(w)?;
-                n += v.encode_bin(w)?;
-                Ok(n)
-            }
-            Concrete::Tree(t) => {
-                let mut n = 0usize.encode_bin(w)?;
-                n += t.encode_bin(w)?;
-                Ok(n)
-            }
-        }
-    }
-
-    fn decode_bin<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
-        let header = usize::decode_bin(r)?;
-        match header {
-            0 => Ok(Concrete::Tree(BTreeMap::decode_bin(r)?)),
-            1 => Ok(Concrete::Contents(T::decode_bin(r)?)),
-            _ => Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "Invalid Tree format",
-            )),
-        }
+impl<'a, T: Contents> PartialEq for Tree<'a, T> {
+    fn eq(&self, other: &Tree<'a, T>) -> bool {
+        unsafe { irmin_tree_equal(self.repo.ptr, self.ptr, other.ptr) }
     }
 }
 
-impl<T: Type> Concrete<T> {
-    pub fn empty() -> Self {
-        Concrete::Tree(BTreeMap::new())
-    }
-
-    pub fn is_tree(&self) -> bool {
-        match self {
-            Concrete::Tree(_) => true,
-            _ => false,
+impl<'a, T: Contents> Tree<'a, T> {
+    /// Create an empty tree
+    pub fn new(repo: &'a Repo<T>) -> Result<Tree<'a, T>, Error> {
+        unsafe {
+            let ptr = irmin_tree_new(repo.ptr);
+            check!(ptr);
+            Ok(Tree { ptr, repo })
         }
     }
 
-    pub fn is_contents(&self) -> bool {
-        match self {
-            Concrete::Contents(_) => true,
-            _ => false,
+    /// Update the tree with a value at the specified path
+    pub fn add(&mut self, path: &Path, value: &T) -> Result<(), Error> {
+        unsafe {
+            let value = value.to_value()?;
+            irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr);
+            Ok(())
         }
     }
 
-    pub fn add_step(&mut self, key: impl Into<String>, value: T) {
-        match self {
-            Concrete::Tree(t) => {
-                let value = Concrete::Contents(value);
-                t.insert(key.into(), value);
+    /// Update the tree with a tree at the specified path
+    pub fn add_tree(&mut self, path: &Path, tree: &Tree<T>) {
+        unsafe { irmin_tree_add_tree(self.repo.ptr, self.ptr, path.ptr, tree.ptr) }
+    }
+
+    /// Check for the existence of a value at the given path
+    pub fn mem(&self, path: &Path) -> bool {
+        unsafe { irmin_tree_mem(self.repo.ptr, self.ptr, path.ptr) }
+    }
+
+    /// Check for the existence of a tree at the given path
+    pub fn mem_tree(&self, path: &Path) -> bool {
+        unsafe { irmin_tree_mem_tree(self.repo.ptr, self.ptr, path.ptr) }
+    }
+
+    /// Remove any bindings for the given path
+    pub fn remove(&mut self, path: &Path) {
+        unsafe { irmin_tree_remove(self.repo.ptr, self.ptr, path.ptr) }
+    }
+
+    /// Find a value associated with a path
+    pub fn find(&self, path: &Path) -> Result<Option<T>, Error> {
+        unsafe {
+            let ptr = irmin_tree_find(self.repo.ptr, self.ptr, path.ptr);
+            check!(ptr);
+            if ptr.is_null() {
+                return Ok(None);
             }
-            Concrete::Contents(_) => {
-                *self = Self::empty();
-                self.add_step(key, value);
-            }
+            let ty = T::ty()?;
+            let x = Value { ptr, ty };
+            let value = T::from_value(&x)?;
+            Ok(Some(value))
         }
     }
 
-    pub fn add_tree_step(&mut self, key: impl Into<String>, tree: Concrete<T>) {
-        match self {
-            Concrete::Tree(t) => {
-                t.insert(key.into(), tree);
+    /// Find a tree associated with a path
+    pub fn find_tree(&self, path: &Path) -> Result<Option<Tree<T>>, Error> {
+        unsafe {
+            let ptr = irmin_tree_find_tree(self.repo.ptr, self.ptr, path.ptr);
+            check!(ptr);
+            if ptr.is_null() {
+                return Ok(None);
             }
-            Concrete::Contents(_) => {
-                *self = Self::empty();
-                self.add_tree_step(key, tree);
-            }
+            let x = Tree {
+                ptr,
+                repo: self.repo,
+            };
+            Ok(Some(x))
         }
     }
 
-    pub fn remove_step(&mut self, key: impl AsRef<str>) {
-        match self {
-            Concrete::Tree(t) => {
-                t.remove(key.as_ref());
+    /// List paths
+    pub fn list(&self, path: &Path) -> Result<Vec<Path>, Error> {
+        let p = unsafe { irmin_tree_list(self.repo.ptr, self.ptr, path.ptr) };
+        if p.is_null() {
+            return Err(Error::NullPtr);
+        }
+        let len = unsafe { irmin_path_list_length(self.repo.ptr, p) };
+        let mut dest = Vec::new();
+        for i in 0..len {
+            let path = unsafe { irmin_path_list_get(self.repo.ptr, p, i) };
+            if path.is_null() {
+                continue;
             }
-            _ => (),
+            dest.push(Path {
+                ptr: path,
+                repo: UntypedRepo::new(&self.repo),
+            })
         }
-    }
 
-    pub fn mem_step(&self, key: impl AsRef<str>) -> bool {
-        match self {
-            Concrete::Tree(t) => t.contains_key(key.as_ref()),
-            _ => false,
-        }
-    }
+        unsafe { irmin_path_list_free(p) }
 
-    pub fn mem_tree_step(&self, key: impl AsRef<str>) -> bool {
-        match self {
-            Concrete::Tree(t) => match t.get(key.as_ref()) {
-                Some(Concrete::Tree(_)) => true,
-                _ => false,
-            },
-            _ => false,
-        }
+        Ok(dest)
     }
 }

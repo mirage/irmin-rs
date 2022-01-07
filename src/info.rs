@@ -1,40 +1,54 @@
-use crate::{irmin, Type};
+use crate::internal::*;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd, Type)]
-pub struct Info {
-    pub date: i64,
-    pub author: String,
-    pub message: String,
+/// Wrapper around irmin commit info
+pub struct Info<'a> {
+    pub ptr: *mut IrminInfo,
+    pub(crate) repo: UntypedRepo<'a>,
 }
 
-impl Default for Info {
-    fn default() -> Info {
-        Info::new()
-    }
-}
-
-impl Info {
-    pub fn new() -> Info {
-        let now = std::time::SystemTime::now().duration_since(std::time::SystemTime::UNIX_EPOCH);
-        let date = match now {
-            Ok(x) => x.as_secs(),
-            Err(_) => 0,
+impl<'a> Info<'a> {
+    /// Create new commit info
+    pub fn new<T: Contents>(
+        repo: &Repo<T>,
+        author: impl AsRef<str>,
+        message: impl AsRef<str>,
+    ) -> Result<Info, Error> {
+        let message = cstring(message);
+        let author = cstring(author);
+        let ptr = unsafe {
+            irmin_info_new(
+                repo.ptr,
+                author.as_ptr() as *mut _,
+                message.as_ptr() as *mut _,
+            )
         };
-
-        Info {
-            date: date as i64,
-            author: String::from("irmin-rs"),
-            message: String::new(),
-        }
+        check!(ptr);
+        Ok(Info {
+            ptr,
+            repo: UntypedRepo::new(repo),
+        })
     }
 
-    pub fn with_message(mut self, message: impl Into<String>) -> Self {
-        self.message = message.into();
-        self
+    /// Get date
+    pub fn date(&self) -> i64 {
+        unsafe { irmin_info_date(self.repo.ptr, self.ptr) }
     }
 
-    pub fn with_author(mut self, author: impl Into<String>) -> Self {
-        self.author = author.into();
-        self
+    /// Get author
+    pub fn author(&self) -> Result<IrminString, Error> {
+        let ptr = unsafe { irmin_info_author(self.repo.ptr, self.ptr) };
+        IrminString::wrap(ptr)
+    }
+
+    /// Get message
+    pub fn message(&self) -> Result<IrminString, Error> {
+        let ptr = unsafe { irmin_info_message(self.repo.ptr, self.ptr) };
+        IrminString::wrap(ptr)
+    }
+}
+
+impl<'a> Drop for Info<'a> {
+    fn drop(&mut self) {
+        unsafe { irmin_info_free(self.ptr) }
     }
 }

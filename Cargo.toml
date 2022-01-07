@@ -1,22 +1,15 @@
 [package]
 name = "irmin"
 version = "0.1.0"
-authors = ["Zach Shipko <zachshipko@gmail.com>"]
-edition = "2018"
+authors = ["zach <zachshipko@gmail.com>"]
+edition = "2021"
+include = ["libirmin.so", "src/*.rs", "build.rs"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[build-dependencies]
+bindgen = "0.59"
 
 [dependencies]
-irmin-type-derive = {path = "./derive", version = "0.1"}
-ocaml-interop = {version = "0.8", optional = true}
-tokio = {version = "1", optional = true, features = ["net", "io-util", "macros", "rt"]}
-blake2 = {version = "0.9", optional = true}
-sha1 = {version = "0.6", optional = true}
-
-[features]
-default = ["bindings", "client"]
-bindings = ["ocaml-interop"]
-client = ["tokio", "blake2", "sha1"]
-
-[workspace]
-members = [
-  "derive"
-]
+serde_json = "1"
+serde = {version = "1", features = ["derive"]}
