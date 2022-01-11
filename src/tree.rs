@@ -29,9 +29,18 @@ impl<'a, T: Contents> Tree<'a, T> {
     }
 
     /// Update the tree with a value at the specified path
-    pub fn add(&mut self, path: &Path, value: &T) -> Result<(), Error> {
+    pub fn add(
+        &mut self,
+        path: &Path,
+        value: &T,
+        metadata: Option<&Metadata>,
+    ) -> Result<(), Error> {
         unsafe {
             let value = value.to_value()?;
+            let meta = match metadata {
+                Some(m) => m.ptr,
+                None => std::ptr::null_mut(),
+            };
             irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr);
             Ok(())
         }
