@@ -24,11 +24,11 @@ pub fn error_msg() -> Option<IrminString> {
 pub mod bindings;
 
 mod commit;
-mod commit_key;
 mod config;
 mod hash;
 mod info;
 mod irmin_string;
+mod key;
 mod metadata;
 mod path;
 mod repo;
@@ -40,11 +40,11 @@ mod value;
 
 pub(crate) mod prelude {
     pub use crate::commit::Commit;
-    pub use crate::commit_key::CommitKey;
     pub use crate::config::{Config, ContentType, Contents, HashType};
     pub use crate::hash::Hash;
     pub use crate::info::Info;
     pub use crate::irmin_string::IrminString;
+    pub use crate::key::{CommitKey, KindedKey};
     pub use crate::metadata::Metadata;
     pub use crate::path::Path;
     pub use crate::repo::Repo;

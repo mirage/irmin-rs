@@ -28,6 +28,40 @@ impl<'a, T: Contents> Tree<'a, T> {
         }
     }
 
+    pub fn hash(&self) -> Result<Hash, Error> {
+        let h = unsafe { irmin_tree_hash(self.repo.ptr, self.ptr) };
+        check!(h);
+        Ok(Hash {
+            ptr: h,
+            repo: UntypedRepo::new(self.repo),
+        })
+    }
+
+    pub fn key(&self) -> Result<KindedKey, Error> {
+        let h = unsafe { irmin_tree_key(self.repo.ptr, self.ptr) };
+        check!(h);
+        Ok(KindedKey {
+            ptr: h,
+            repo: UntypedRepo::new(self.repo),
+        })
+    }
+
+    pub fn of_hash(repo: &'a Repo<T>, h: &Hash) -> Option<Tree<'a, T>> {
+        let ptr = unsafe { irmin_tree_of_hash(repo.ptr, h.ptr) };
+        if ptr.is_null() {
+            return None;
+        }
+        Some(Tree { ptr, repo })
+    }
+
+    pub fn of_key(repo: &'a Repo<T>, k: &KindedKey) -> Option<Tree<'a, T>> {
+        let ptr = unsafe { irmin_tree_of_key(repo.ptr, k.ptr) };
+        if ptr.is_null() {
+            return None;
+        }
+        Some(Tree { ptr, repo })
+    }
+
     /// Update the tree with a value at the specified path
     pub fn add(
         &mut self,

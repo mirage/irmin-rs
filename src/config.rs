@@ -34,6 +34,22 @@ where
     fn to_value(&self) -> Result<Value, Error>;
     fn from_value(v: &Value) -> Result<Self, Error>;
 
+    fn of_hash<'a>(repo: &'a Repo<Self>, hash: &Hash) -> Option<Self> {
+        if let Some(v) = Value::contents_of_hash(repo, hash) {
+            match Self::from_value(&v) {
+                Ok(x) => Some(x),
+                Err(_) => None,
+            }
+        } else {
+            None
+        }
+    }
+
+    fn hash<'a>(&self, repo: &'a Repo<Self>) -> Result<Hash<'a>, Error> {
+        let v = self.to_value()?;
+        Value::hash_contents(&v, repo)
+    }
+
     fn ty() -> Result<Type, Error> {
         match Self::content_type() {
             ContentType::String => Type::string(),
