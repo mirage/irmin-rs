@@ -147,7 +147,7 @@ mod tests {
         let ab = repo.path(&["a", "b"])?;
 
         let v = String::from("123");
-        tree.add(&abc, &v)?;
+        tree.add(&abc, &v, None)?;
         assert!(tree.mem(&abc));
         assert!(tree.mem_tree(&ab));
 

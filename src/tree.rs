@@ -41,7 +41,7 @@ impl<'a, T: Contents> Tree<'a, T> {
                 Some(m) => m.ptr,
                 None => std::ptr::null_mut(),
             };
-            irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr);
+            irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr, meta);
             Ok(())
         }
     }

@@ -16,7 +16,8 @@ fn find_path<E: std::error::Error>(paths: Vec<Result<PathBuf, E>>) -> (PathBuf, 
 
 fn main() {
     let path = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let opam_prefix = std::env::var("OPAM_SWITCH_PREFIX").map(PathBuf::from);
+    let opam_prefix =
+        std::env::var("OPAM_SWITCH_PREFIX").map(|x| PathBuf::from(x).join("lib").join("libirmin"));
     let libirmin_prefix = std::env::var("LIBIRMIN_PREFIX").map(PathBuf::from);
     let local_opam = PathBuf::from("_opam").join("lib").join("libirmin");
     let home_local = std::env::var("HOME").map(|x| PathBuf::from(x).join(".local"));

@@ -82,6 +82,18 @@ impl Type {
         Ok(Type { ptr })
     }
 
+    pub fn commit_key<T: Contents>(repo: &Repo<T>) -> Result<Type, Error> {
+        let ptr = unsafe { irmin_type_commit_key(repo.ptr) };
+        check!(ptr);
+        Ok(Type { ptr })
+    }
+
+    pub fn metadata<T: Contents>(repo: &Repo<T>) -> Result<Type, Error> {
+        let ptr = unsafe { irmin_type_metadata(repo.ptr) };
+        check!(ptr);
+        Ok(Type { ptr })
+    }
+
     /// The tree type for a Repo
     pub fn tree<T: Contents>(repo: &Repo<T>) -> Result<Type, Error> {
         let ptr = unsafe { irmin_type_tree(repo.ptr) };

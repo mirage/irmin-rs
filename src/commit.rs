@@ -65,6 +65,28 @@ impl<'a> Commit<'a> {
         })
     }
 
+    /// Find the commit associated with the given key
+    pub fn of_key<T: Contents>(repo: &'a Repo<T>, key: &CommitKey) -> Option<Commit<'a>> {
+        let ptr = unsafe { irmin_commit_of_key(repo.ptr, key.ptr) };
+        if ptr.is_null() {
+            return None;
+        }
+        Some(Commit {
+            ptr,
+            repo: UntypedRepo::new(repo),
+        })
+    }
+
+    /// Get the key associated with a commit
+    pub fn key(&self) -> Result<CommitKey, Error> {
+        let ptr = unsafe { irmin_commit_key(self.repo.ptr, self.ptr) };
+        check!(ptr);
+        Ok(CommitKey {
+            ptr,
+            repo: self.repo.clone(),
+        })
+    }
+
     /// Get commit info
     pub fn info(&self) -> Result<Info, Error> {
         let ptr = unsafe { irmin_commit_info(self.repo.ptr, self.ptr) };
