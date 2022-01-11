@@ -29,7 +29,7 @@ jobs:
           ocaml-compiler: ${{ matrix.ocaml-compiler}}
 
       - run: curl https://sh.rustup.rs -sSf | sh -s -- --profile minimal -y
-      - run: "opam pin add libirmin.dev git+https://github.com/zshipko/libirmin.git --no-action"
+      - run: "opam pin add libirmin.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
       - run: opam install libirmin
       - run: opam exec -- make test
 
