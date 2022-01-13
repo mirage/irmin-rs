@@ -16,6 +16,10 @@ $ cargo build
 
 And the build script should be able to find the location of the `libirmin` library and header files.
 
+If `libirmin.so` and `irmin.h` were not installed using opam and they're not in `~/.local` or
+`/usr/local`, then you can specify where to look for them using the `LIBIRMIN_PREFIX` env
+variable.
+
 ## Testing
 
 Tests must be executed using a single thread:
