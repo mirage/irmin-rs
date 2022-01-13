@@ -31,6 +31,8 @@ fn main() {
         Ok(PathBuf::from("/usr/local")),
     ]);
 
+    println!("cargo:rerun-if-changed={}", header.display());
+
     println!(
         "cargo:rustc-link-arg=-Wl,-rpath,{}",
         lib.parent().unwrap().display()
