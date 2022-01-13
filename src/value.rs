@@ -137,25 +137,4 @@ impl Value {
         let s = unsafe { irmin_value_get_string(self.ptr) };
         crate::IrminString::wrap(s)
     }
-
-    pub fn hash_contents<'a, T: Contents>(&self, repo: &'a Repo<T>) -> Result<Hash<'a>, Error> {
-        let ptr = unsafe { irmin_contents_hash(repo.ptr, self.ptr) };
-        check!(ptr);
-        Ok(Hash {
-            ptr,
-            repo: UntypedRepo::new(repo),
-        })
-    }
-
-    pub fn contents_of_hash<'a, T: Contents>(repo: &'a Repo<T>, h: &Hash<'a>) -> Option<Value> {
-        let ptr = unsafe { irmin_contents_of_hash(repo.ptr, h.ptr) };
-        if ptr.is_null() {
-            return None;
-        }
-        let ty = match Type::contents(repo) {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        Some(Value { ptr, ty })
-    }
 }

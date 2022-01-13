@@ -30,7 +30,7 @@ impl<'a, T: Contents> Store<'a, T> {
     pub fn set(&mut self, path: &Path, value: &T, info: Info) -> Result<bool, Error> {
         let value = value.to_value()?;
         unsafe {
-            let r = irmin_set(self.ptr, path.ptr, value.ptr, info.ptr);
+            let r = irmin_set(self.ptr, path.ptr, value.ptr as *mut _, info.ptr);
             check!(r, false);
             Ok(r)
         }
@@ -56,8 +56,11 @@ impl<'a, T: Contents> Store<'a, T> {
             let r = irmin_test_and_set(
                 self.ptr,
                 path.ptr,
-                old.map(|x| x.ptr).unwrap_or_else(|| std::ptr::null_mut()),
-                value.map(|x| x.ptr).unwrap_or_else(|| std::ptr::null_mut()),
+                old.map(|x| x.ptr as *mut _)
+                    .unwrap_or_else(|| std::ptr::null_mut()),
+                value
+                    .map(|x| x.ptr as *mut _)
+                    .unwrap_or_else(|| std::ptr::null_mut()),
                 info.ptr,
             );
             check!(r, false);
@@ -103,7 +106,10 @@ impl<'a, T: Contents> Store<'a, T> {
             return Ok(None);
         }
         let ty = T::ty()?;
-        let v = Value { ptr: r, ty };
+        let v = Value {
+            ptr: r as *mut _,
+            ty,
+        };
         let v = T::from_value(&v)?;
         Ok(Some(v))
     }

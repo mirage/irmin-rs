@@ -75,7 +75,7 @@ impl<'a, T: Contents> Tree<'a, T> {
                 Some(m) => m.ptr,
                 None => std::ptr::null_mut(),
             };
-            irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr, meta);
+            irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr as *mut _, meta);
             Ok(())
         }
     }
@@ -109,7 +109,10 @@ impl<'a, T: Contents> Tree<'a, T> {
                 return Ok(None);
             }
             let ty = T::ty()?;
-            let x = Value { ptr, ty };
+            let x = Value {
+                ptr: ptr as *mut _,
+                ty,
+            };
             let value = T::from_value(&x)?;
             Ok(Some(value))
         }

@@ -35,19 +35,33 @@ where
     fn from_value(v: &Value) -> Result<Self, Error>;
 
     fn of_hash<'a>(repo: &'a Repo<Self>, hash: &Hash) -> Option<Self> {
-        if let Some(v) = Value::contents_of_hash(repo, hash) {
-            match Self::from_value(&v) {
-                Ok(x) => Some(x),
-                Err(_) => None,
-            }
-        } else {
-            None
+        let ptr = unsafe { irmin_contents_of_hash(repo.ptr, hash.ptr) };
+        if ptr.is_null() {
+            return None;
+        }
+        let ty = match Type::contents(repo) {
+            Ok(t) => t,
+            Err(_) => return None,
+        };
+        let v = Value {
+            ptr: ptr as *mut _,
+            ty,
+        };
+        match Self::from_value(&v) {
+            Ok(x) => Some(x),
+            Err(_) => None,
         }
     }
 
     fn hash<'a>(&self, repo: &'a Repo<Self>) -> Result<Hash<'a>, Error> {
         let v = self.to_value()?;
-        Value::hash_contents(&v, repo)
+
+        let ptr = unsafe { irmin_contents_hash(repo.ptr, v.ptr as *mut _) };
+        check!(ptr);
+        Ok(Hash {
+            ptr,
+            repo: UntypedRepo::new(repo),
+        })
     }
 
     fn ty() -> Result<Type, Error> {
