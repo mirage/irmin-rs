@@ -69,20 +69,23 @@ impl<'a, T: Contents> Tree<'a, T> {
         value: &T,
         metadata: Option<&Metadata>,
     ) -> Result<(), Error> {
-        unsafe {
+        let x = unsafe {
             let value = value.to_value()?;
             let meta = match metadata {
                 Some(m) => m.ptr,
                 None => std::ptr::null_mut(),
             };
-            irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr as *mut _, meta);
-            Ok(())
-        }
+            irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr as *mut _, meta)
+        };
+        check!(x, false);
+        Ok(())
     }
 
     /// Update the tree with a tree at the specified path
-    pub fn add_tree(&mut self, path: &Path, tree: &Tree<T>) {
-        unsafe { irmin_tree_add_tree(self.repo.ptr, self.ptr, path.ptr, tree.ptr) }
+    pub fn add_tree(&mut self, path: &Path, tree: &Tree<T>) -> Result<(), Error> {
+        let x = unsafe { irmin_tree_add_tree(self.repo.ptr, self.ptr, path.ptr, tree.ptr) };
+        check!(x, false);
+        Ok(())
     }
 
     /// Check for the existence of a value at the given path
@@ -96,8 +99,10 @@ impl<'a, T: Contents> Tree<'a, T> {
     }
 
     /// Remove any bindings for the given path
-    pub fn remove(&mut self, path: &Path) {
-        unsafe { irmin_tree_remove(self.repo.ptr, self.ptr, path.ptr) }
+    pub fn remove(&mut self, path: &Path) -> Result<(), Error> {
+        let x = unsafe { irmin_tree_remove(self.repo.ptr, self.ptr, path.ptr) };
+        check!(x, false);
+        Ok(())
     }
 
     /// Find a value associated with a path
