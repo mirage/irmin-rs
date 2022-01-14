@@ -20,14 +20,14 @@ impl<T: Contents> Repo<T> {
         let b = unsafe { irmin_repo_branches(self.ptr) };
         check!(b);
         let mut dest = Vec::new();
-        let n = unsafe { irmin_branch_list_length(self.ptr, b) };
+        let n = unsafe { irmin_branch_array_length(self.ptr, b) };
         for i in 0..n {
-            let p = unsafe { irmin_branch_list_get(self.ptr, b, i) };
+            let p = unsafe { irmin_branch_array_get(self.ptr, b, i) };
             if let Ok(s) = IrminString::wrap(p) {
                 dest.push(s);
             }
         }
-        unsafe { irmin_branch_list_free(b) };
+        unsafe { irmin_branch_array_free(b) };
         Ok(dest)
     }
 

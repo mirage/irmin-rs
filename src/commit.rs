@@ -101,10 +101,10 @@ impl<'a> Commit<'a> {
     pub fn parents(&self) -> Result<Vec<Commit>, Error> {
         let p = unsafe { irmin_commit_parents(self.repo.ptr, self.ptr) };
         check!(p);
-        let len = unsafe { irmin_commit_list_length(self.repo.ptr, p) };
+        let len = unsafe { irmin_commit_array_length(self.repo.ptr, p) };
         let mut dest = Vec::new();
         for i in 0..len {
-            let c = unsafe { irmin_commit_list_get(self.repo.ptr, p, i) };
+            let c = unsafe { irmin_commit_array_get(self.repo.ptr, p, i) };
             if c.is_null() {
                 continue;
             }
@@ -114,7 +114,7 @@ impl<'a> Commit<'a> {
             })
         }
 
-        unsafe { irmin_commit_list_free(p) }
+        unsafe { irmin_commit_array_free(p) }
 
         Ok(dest)
     }

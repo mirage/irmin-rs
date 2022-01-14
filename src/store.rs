@@ -188,10 +188,10 @@ impl<'a, T: Contents> Store<'a, T> {
     pub fn list(&self, path: &Path) -> Result<Vec<Path>, Error> {
         let p = unsafe { irmin_list(self.ptr, path.ptr) };
         check!(p);
-        let len = unsafe { irmin_path_list_length(self.repo.ptr, p) };
+        let len = unsafe { irmin_path_array_length(self.repo.ptr, p) };
         let mut dest = Vec::new();
         for i in 0..len {
-            let path = unsafe { irmin_path_list_get(self.repo.ptr, p, i) };
+            let path = unsafe { irmin_path_array_get(self.repo.ptr, p, i) };
             if path.is_null() {
                 continue;
             }
@@ -201,7 +201,7 @@ impl<'a, T: Contents> Store<'a, T> {
             })
         }
 
-        unsafe { irmin_path_list_free(p) }
+        unsafe { irmin_path_array_free(p) }
 
         Ok(dest)
     }

@@ -145,10 +145,10 @@ impl<'a, T: Contents> Tree<'a, T> {
         if p.is_null() {
             return Err(Error::NullPtr);
         }
-        let len = unsafe { irmin_path_list_length(self.repo.ptr, p) };
+        let len = unsafe { irmin_path_array_length(self.repo.ptr, p) };
         let mut dest = Vec::new();
         for i in 0..len {
-            let path = unsafe { irmin_path_list_get(self.repo.ptr, p, i) };
+            let path = unsafe { irmin_path_array_get(self.repo.ptr, p, i) };
             if path.is_null() {
                 continue;
             }
@@ -158,7 +158,7 @@ impl<'a, T: Contents> Tree<'a, T> {
             })
         }
 
-        unsafe { irmin_path_list_free(p) }
+        unsafe { irmin_path_array_free(p) }
 
         Ok(dest)
     }
