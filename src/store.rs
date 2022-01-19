@@ -26,6 +26,15 @@ impl<'a, T: Contents> Store<'a, T> {
         }
     }
 
+    /// Specify the commit to open
+    pub fn of_commit(repo: &'a Repo<T>, commit: &Commit) -> Result<Store<'a, T>, Error> {
+        unsafe {
+            let ptr = irmin_of_commit(repo.ptr, commit.ptr);
+            check!(ptr);
+            Ok(Store { ptr, repo })
+        }
+    }
+
     /// Set a value, creating a new commit
     pub fn set(&mut self, path: &Path, value: &T, info: Info) -> Result<bool, Error> {
         let value = value.to_value()?;
