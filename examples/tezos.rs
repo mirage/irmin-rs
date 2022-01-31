@@ -18,8 +18,8 @@ fn list_path<T: Contents>(store: &Store<T>, path: Path) -> Result<(), Error> {
 fn main() -> Result<(), Error> {
     let args: Vec<_> = std::env::args().collect();
 
-    if args.len() < 2 {
-        println!("usage: {} /path/to/tezos/context [chain_id]", &args[0]);
+    if args.len() < 3 {
+        println!("usage: {} /path/to/tezos/context <commit_hash>", &args[0]);
         return Ok(());
     }
 
@@ -30,18 +30,14 @@ fn main() -> Result<(), Error> {
     // Initialize the repo
     let repo = Repo::new(config)?;
 
-    let chain_id = if args.len() > 2 {
-        args[2].to_string()
-    } else {
-        let mut branches = repo.branches()?;
-        let first = branches.remove(0);
-        first.into()
-    };
+    // Resolve commit
+    let hash = Hash::of_string(&repo, &args[2])?;
+    let commit = Commit::of_hash(&repo, &hash).expect("Commit not found");
 
-    // Open the main branch
-    let store = Store::of_branch(&repo, &chain_id)?;
+    // Open the store
+    let store = Store::of_commit(&repo, &commit)?;
 
-    // List content paths
+    // List contract paths
     let path = repo.path(&["data", "contracts"])?;
     list_path(&store, path)?;
 
