@@ -24,7 +24,7 @@ impl<'a> Path<'a> {
         unsafe {
             let s = s.as_ref();
             let ptr = irmin_path_of_string(repo.ptr, s.as_ptr() as *mut _, s.len() as i64);
-            check!(ptr);
+            check!(repo.ptr, ptr);
             Ok(Path {
                 ptr,
                 repo: UntypedRepo::new(repo),
@@ -38,7 +38,7 @@ impl<'a> Path<'a> {
         let mut t: Vec<_> = s.iter().map(|x| x.as_ptr() as *mut u8).collect();
         t.push(std::ptr::null_mut());
         let ptr = unsafe { irmin_path(repo.ptr, t.as_ptr() as *mut _) };
-        check!(ptr);
+        check!(repo.ptr, ptr);
         Ok(Path {
             ptr,
             repo: UntypedRepo::new(repo),
@@ -48,7 +48,7 @@ impl<'a> Path<'a> {
     /// Create an empty path
     pub fn empty<T: Contents>(repo: &'a Repo<T>) -> Result<Path<'a>, Error> {
         let ptr = unsafe { irmin_path_empty(repo.ptr as *mut _) };
-        check!(ptr);
+        check!(repo.ptr, ptr);
         Ok(Path {
             ptr,
             repo: UntypedRepo::new(repo),
@@ -78,7 +78,7 @@ impl<'a> Path<'a> {
                 s.len() as i64,
             )
         };
-        check!(ptr);
+        check!(self.repo.ptr, ptr);
         Ok(Path {
             ptr,
             repo: self.repo.clone(),
@@ -88,7 +88,7 @@ impl<'a> Path<'a> {
     /// Append two paths
     pub fn append_path(&self, s: &Path) -> Result<Path<'a>, Error> {
         let ptr = unsafe { irmin_path_append_path(self.repo.ptr, self.ptr, s.ptr) };
-        check!(ptr);
+        check!(self.repo.ptr, ptr);
         Ok(Path {
             ptr,
             repo: self.repo.clone(),

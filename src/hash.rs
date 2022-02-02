@@ -20,7 +20,7 @@ impl<'a> Hash<'a> {
     ) -> Result<Hash<'a>, Error> {
         let s = s.as_ref();
         let ptr = unsafe { irmin_hash_of_string(repo.ptr, s.as_ptr() as *mut _, s.len() as i64) };
-        check!(ptr);
+        check!(repo.ptr, ptr);
         Ok(Hash {
             ptr,
             repo: UntypedRepo::new(repo),

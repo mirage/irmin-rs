@@ -23,14 +23,14 @@ impl<'a, T: Contents> Tree<'a, T> {
     pub fn new(repo: &'a Repo<T>) -> Result<Tree<'a, T>, Error> {
         unsafe {
             let ptr = irmin_tree_new(repo.ptr);
-            check!(ptr);
+            check!(repo.ptr, ptr);
             Ok(Tree { ptr, repo })
         }
     }
 
     pub fn hash(&self) -> Result<Hash, Error> {
         let h = unsafe { irmin_tree_hash(self.repo.ptr, self.ptr) };
-        check!(h);
+        check!(self.repo.ptr, h);
         Ok(Hash {
             ptr: h,
             repo: UntypedRepo::new(self.repo),
@@ -39,7 +39,7 @@ impl<'a, T: Contents> Tree<'a, T> {
 
     pub fn key(&self) -> Result<KindedKey, Error> {
         let h = unsafe { irmin_tree_key(self.repo.ptr, self.ptr) };
-        check!(h);
+        check!(self.repo.ptr, h);
         Ok(KindedKey {
             ptr: h,
             repo: UntypedRepo::new(self.repo),
@@ -77,14 +77,14 @@ impl<'a, T: Contents> Tree<'a, T> {
             };
             irmin_tree_add(self.repo.ptr, self.ptr, path.ptr, value.ptr as *mut _, meta)
         };
-        check!(x, false);
+        check!(self.repo.ptr, x, false);
         Ok(())
     }
 
     /// Update the tree with a tree at the specified path
     pub fn add_tree(&mut self, path: &Path, tree: &Tree<T>) -> Result<(), Error> {
         let x = unsafe { irmin_tree_add_tree(self.repo.ptr, self.ptr, path.ptr, tree.ptr) };
-        check!(x, false);
+        check!(self.repo.ptr, x, false);
         Ok(())
     }
 
@@ -101,7 +101,7 @@ impl<'a, T: Contents> Tree<'a, T> {
     /// Remove any bindings for the given path
     pub fn remove(&mut self, path: &Path) -> Result<(), Error> {
         let x = unsafe { irmin_tree_remove(self.repo.ptr, self.ptr, path.ptr) };
-        check!(x, false);
+        check!(self.repo.ptr, x, false);
         Ok(())
     }
 
@@ -109,7 +109,7 @@ impl<'a, T: Contents> Tree<'a, T> {
     pub fn find(&self, path: &Path) -> Result<Option<T>, Error> {
         unsafe {
             let ptr = irmin_tree_find(self.repo.ptr, self.ptr, path.ptr);
-            check!(ptr);
+            check!(self.repo.ptr, ptr);
             if ptr.is_null() {
                 return Ok(None);
             }
@@ -127,7 +127,7 @@ impl<'a, T: Contents> Tree<'a, T> {
     pub fn find_tree(&self, path: &Path) -> Result<Option<Tree<T>>, Error> {
         unsafe {
             let ptr = irmin_tree_find_tree(self.repo.ptr, self.ptr, path.ptr);
-            check!(ptr);
+            check!(self.repo.ptr, ptr);
             if ptr.is_null() {
                 return Ok(None);
             }

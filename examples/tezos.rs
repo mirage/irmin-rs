@@ -25,7 +25,7 @@ fn main() -> Result<(), Error> {
 
     // Configure an in-memory store with `Json` contents
     let mut config = Config::<IrminString>::tezos()?;
-    config.set_root(&args[1])?;
+    assert!(config.set_root(&args[1]));
 
     // Initialize the repo
     let repo = Repo::new(config)?;

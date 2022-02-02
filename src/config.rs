@@ -57,7 +57,7 @@ where
         let v = self.to_value()?;
 
         let ptr = unsafe { irmin_contents_hash(repo.ptr, v.ptr as *mut _) };
-        check!(ptr);
+        check!(repo.ptr, ptr);
         Ok(Hash {
             ptr,
             repo: UntypedRepo::new(repo),
@@ -200,14 +200,14 @@ impl Contents for serde_json::Map<String, serde_json::Value> {
     }
 }
 
-const ROOT_KEY: &str = "root\0";
-
 impl Config<IrminString> {
     /// Create configuration for Tezos context store
     pub fn tezos() -> Result<Config<IrminString>, Error> {
         unsafe {
             let ptr = irmin_config_tezos();
-            check!(ptr);
+            if ptr.is_null() {
+                return Err(Error::NullPtr);
+            }
             Ok(Config {
                 ptr,
                 _t: std::marker::PhantomData,
@@ -223,7 +223,9 @@ impl<T: Contents> Config<T> {
             let hash = HashType::ptr(hash);
             let contents = ContentType::ptr(Some(T::content_type()));
             let ptr = irmin_config_pack(hash as *mut _, contents as *mut _);
-            check!(ptr);
+            if ptr.is_null() {
+                return Err(Error::NullPtr);
+            }
             Ok(Config {
                 ptr,
                 _t: std::marker::PhantomData,
@@ -237,7 +239,9 @@ impl<T: Contents> Config<T> {
             let hash = HashType::ptr(hash);
             let contents = ContentType::ptr(Some(T::content_type()));
             let ptr = irmin_config_mem(hash as *mut _, contents as *mut _);
-            check!(ptr);
+            if ptr.is_null() {
+                return Err(Error::NullPtr);
+            }
             Ok(Config {
                 ptr,
                 _t: std::marker::PhantomData,
@@ -251,7 +255,9 @@ impl<T: Contents> Config<T> {
             let hash = HashType::ptr(hash);
             let contents = ContentType::ptr(Some(T::content_type()));
             let ptr = irmin_config_fs(hash as *mut _, contents as *mut _);
-            check!(ptr);
+            if ptr.is_null() {
+                return Err(Error::NullPtr);
+            }
             Ok(Config {
                 ptr,
                 _t: std::marker::PhantomData,
@@ -264,7 +270,9 @@ impl<T: Contents> Config<T> {
         unsafe {
             let contents = ContentType::ptr(Some(T::content_type()));
             let ptr = irmin_config_git(contents as *mut _);
-            check!(ptr);
+            if ptr.is_null() {
+                return Err(Error::NullPtr);
+            }
             Ok(Config {
                 ptr,
                 _t: std::marker::PhantomData,
@@ -277,7 +285,9 @@ impl<T: Contents> Config<T> {
         unsafe {
             let contents = ContentType::ptr(Some(T::content_type()));
             let ptr = irmin_config_git_mem(contents as *mut _);
-            check!(ptr);
+            if ptr.is_null() {
+                return Err(Error::NullPtr);
+            }
             Ok(Config {
                 ptr,
                 _t: std::marker::PhantomData,
@@ -286,19 +296,14 @@ impl<T: Contents> Config<T> {
     }
 
     /// Set configuration key
-    pub fn set(&mut self, key: impl AsRef<str>, ty: &Type, v: &Value) -> Result<bool, Error> {
+    pub fn set(&mut self, key: impl AsRef<str>, ty: &Type, v: &Value) -> bool {
         let key = cstring(key);
-        let x = unsafe { irmin_config_set(self.ptr, key.as_ptr() as *mut _, ty.ptr, v.ptr) };
-        check!(x, false);
-        Ok(x)
+        unsafe { irmin_config_set(self.ptr, key.as_ptr() as *mut _, ty.ptr, v.ptr) }
     }
 
     /// Set root key
-    pub fn set_root(&mut self, root: impl AsRef<std::path::Path>) -> Result<bool, Error> {
-        let t = Type::string()?;
-        let v = Value::string(root.as_ref().to_str().expect("Invalid path"))?;
-        let x = unsafe { irmin_config_set(self.ptr, ROOT_KEY.as_ptr() as *mut _, t.ptr, v.ptr) };
-        check!(x, false);
-        Ok(x)
+    pub fn set_root(&mut self, root: impl AsRef<std::path::Path>) -> bool {
+        let v = cstring(root.as_ref().to_str().expect("Invalid path"));
+        unsafe { irmin_config_set_root(self.ptr, v.as_ptr() as *mut _) }
     }
 }

@@ -22,7 +22,7 @@ impl<'a> Info<'a> {
                 message.as_ptr() as *mut _,
             )
         };
-        check!(ptr);
+        check!(repo.ptr, ptr);
         Ok(Info {
             ptr,
             repo: UntypedRepo::new(repo),

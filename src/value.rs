@@ -38,7 +38,9 @@ impl Value {
         let s = s.as_ref();
         let ptr =
             unsafe { irmin_string_new(s.as_ptr() as *mut _, s.len() as i64) as *mut IrminValue };
-        check!(ptr);
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        };
 
         let ty = Type::string()?;
 
@@ -50,7 +52,9 @@ impl Value {
         let s = s.as_ref();
         let ptr =
             unsafe { irmin_string_new(s.as_ptr() as *mut _, s.len() as i64) as *mut IrminValue };
-        check!(ptr);
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        };
 
         let ty = Type::string()?;
 
@@ -60,7 +64,9 @@ impl Value {
     /// OCaml int
     pub fn int(i: i64) -> Result<Value, Error> {
         let ptr = unsafe { irmin_value_int(i) };
-        check!(ptr);
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        };
 
         let ty = Type::int()?;
 
@@ -70,7 +76,9 @@ impl Value {
     /// OCaml float
     pub fn float(i: f64) -> Result<Value, Error> {
         let ptr = unsafe { irmin_value_float(i) };
-        check!(ptr);
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        };
 
         let ty = Type::float()?;
 
@@ -80,7 +88,9 @@ impl Value {
     /// OCaml bool
     pub fn bool(i: bool) -> Result<Value, Error> {
         let ptr = unsafe { irmin_value_bool(i) };
-        check!(ptr);
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        };
 
         let ty = Type::bool()?;
 
@@ -92,8 +102,9 @@ impl Value {
         let s = s.as_ref();
 
         let ptr = unsafe { irmin_value_of_string(ty.ptr, s.as_ptr() as *mut _, s.len() as i64) };
-        check!(ptr);
-
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        }
         Ok(Value { ptr, ty })
     }
 
@@ -108,7 +119,9 @@ impl Value {
         let s = s.as_ref();
 
         let ptr = unsafe { irmin_value_of_json(ty.ptr, s.as_ptr() as *mut _, s.len() as i64) };
-        check!(ptr);
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        }
         Ok(Value { ptr, ty })
     }
 
@@ -122,7 +135,9 @@ impl Value {
     pub fn of_bin(ty: Type, s: impl AsRef<[u8]>) -> Result<Value, Error> {
         let s = s.as_ref();
         let ptr = unsafe { irmin_value_of_bin(ty.ptr, s.as_ptr() as *mut _, s.len() as i64) };
-        check!(ptr);
+        if ptr.is_null() {
+            return Err(Error::NullPtr);
+        }
         Ok(Value { ptr, ty })
     }
 

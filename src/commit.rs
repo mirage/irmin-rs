@@ -36,7 +36,7 @@ impl<'a> Commit<'a> {
                 info.ptr,
             )
         };
-        check!(ptr);
+        check!(repo.ptr, ptr);
         Ok(Commit {
             ptr,
             repo: UntypedRepo::new(repo),
@@ -58,7 +58,7 @@ impl<'a> Commit<'a> {
     /// Get the hash associated with a commit
     pub fn hash(&self) -> Result<Hash, Error> {
         let ptr = unsafe { irmin_commit_hash(self.repo.ptr, self.ptr) };
-        check!(ptr);
+        check!(self.repo.ptr, ptr);
         Ok(Hash {
             ptr,
             repo: self.repo.clone(),
@@ -80,7 +80,7 @@ impl<'a> Commit<'a> {
     /// Get the key associated with a commit
     pub fn key(&self) -> Result<CommitKey, Error> {
         let ptr = unsafe { irmin_commit_key(self.repo.ptr, self.ptr) };
-        check!(ptr);
+        check!(self.repo.ptr, ptr);
         Ok(CommitKey {
             ptr,
             repo: self.repo.clone(),
@@ -90,7 +90,7 @@ impl<'a> Commit<'a> {
     /// Get commit info
     pub fn info(&self) -> Result<Info, Error> {
         let ptr = unsafe { irmin_commit_info(self.repo.ptr, self.ptr) };
-        check!(ptr);
+        check!(self.repo.ptr, ptr);
         Ok(Info {
             ptr,
             repo: self.repo.clone(),
@@ -100,7 +100,7 @@ impl<'a> Commit<'a> {
     /// Get commit parents
     pub fn parents(&self) -> Result<Vec<Commit>, Error> {
         let p = unsafe { irmin_commit_parents(self.repo.ptr, self.ptr) };
-        check!(p);
+        check!(self.repo.ptr, p);
         let len = unsafe { irmin_commit_array_length(self.repo.ptr, p) };
         let mut dest = Vec::new();
         for i in 0..len {

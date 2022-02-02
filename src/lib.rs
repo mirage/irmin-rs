@@ -1,5 +1,5 @@
 /// Set internal log level
-pub fn set_log_level(s: Option<&str>) {
+pub fn set_log_level(s: Option<&str>) -> bool {
     let s = s.map(internal::cstring);
     unsafe {
         bindings::irmin_log_level(
@@ -9,8 +9,8 @@ pub fn set_log_level(s: Option<&str>) {
     }
 }
 
-pub fn error_msg() -> Option<IrminString> {
-    let s = unsafe { bindings::irmin_error_msg() };
+fn error_msg(repo: *mut bindings::IrminRepo) -> Option<IrminString> {
+    let s = unsafe { bindings::irmin_repo_get_error(repo) };
     if s.is_null() {
         return None;
     }
@@ -77,13 +77,6 @@ pub enum Error {
 impl From<serde_json::Error> for Error {
     fn from(e: serde_json::Error) -> Error {
         Error::Json(e)
-    }
-}
-
-pub fn raise_error<T>(x: T) -> Result<T, Error> {
-    match error_msg() {
-        Some(err) => Err(Error::Exc(err)),
-        None => Ok(x),
     }
 }
 

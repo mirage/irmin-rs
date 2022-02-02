@@ -4,17 +4,17 @@
 
 #[macro_export]
 macro_rules! check {
-    ($x:expr) => {
+    ($r:expr, $x:expr) => {
         if $x.is_null() {
-            match crate::error_msg() {
+            match crate::error_msg($r) {
                 Some(e) => return Err(Error::Exc(e)),
                 None => return Err(Error::NullPtr),
             }
         }
     };
-    ($x:expr, $y:expr) => {
+    ($r:expr, $x:expr, $y:expr) => {
         if $x == $y {
-            match crate::error_msg() {
+            match crate::error_msg($r) {
                 Some(e) => return Err(Error::Exc(e)),
                 None => (),
             }

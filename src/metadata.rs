@@ -15,7 +15,7 @@ impl<'a> Drop for Metadata<'a> {
 impl<'a> Metadata<'a> {
     pub fn default<T: Contents>(repo: &'a Repo<T>) -> Result<Metadata<'a>, Error> {
         let m = unsafe { irmin_metadata_default(repo.ptr) };
-        check!(m);
+        check!(repo.ptr, m);
         Ok(Metadata {
             ptr: m,
             repo: UntypedRepo::new(repo),

@@ -11,14 +11,16 @@ impl<T: Contents> Repo<T> {
     pub fn new(config: Config<T>) -> Result<Repo<T>, Error> {
         unsafe {
             let ptr = irmin_repo_new(config.ptr);
-            check!(ptr);
+            if ptr.is_null() {
+                return Err(Error::NullPtr);
+            }
             Ok(Repo { config, ptr })
         }
     }
 
     pub fn branches(&self) -> Result<Vec<IrminString>, Error> {
         let b = unsafe { irmin_repo_branches(self.ptr) };
-        check!(b);
+        check!(self.ptr, b);
         let mut dest = Vec::new();
         let n = unsafe { irmin_branch_array_length(self.ptr, b) };
         for i in 0..n {
