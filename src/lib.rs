@@ -92,9 +92,9 @@ mod tests {
         let info = repo.info("irmin", "set")?;
         let path = Path::from_str(&repo, "foo/bar")?;
         let value = serde_json::json!({
-            "a": 1,
-            "b": 2,
-            "c": 3,
+            "a": 1i64,
+            "b": 2i64,
+            "c": 3i64,
         });
         assert!(store.set(&path, &value, info)?);
 
@@ -115,9 +115,9 @@ mod tests {
         assert!(y.unwrap() == value);
 
         let value1 = serde_json::json!({
-            "a": 4,
-            "b": 5,
-            "c": 6,
+            "a": 4i64,
+            "b": 5i64,
+            "c": 6i64,
         });
 
         let info = Info::new(&repo, "irmin", "set")?;
@@ -126,6 +126,14 @@ mod tests {
         let head1 = store.head().unwrap();
         assert!(head1.parents()?.len() == 1);
         assert!(head1.parents()?[0] == head);
+
+        let tree = head1.tree().unwrap();
+        assert!(
+            tree == store
+                .find_tree(&Path::empty(&repo).unwrap())
+                .unwrap()
+                .unwrap()
+        );
 
         Ok(())
     }

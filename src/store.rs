@@ -133,7 +133,8 @@ impl<'a, T: Contents> Store<'a, T> {
             }
             let x = Tree {
                 ptr,
-                repo: self.repo,
+                repo: UntypedRepo::new(self.repo),
+                _t: std::marker::PhantomData,
             };
             Ok(Some(x))
         }

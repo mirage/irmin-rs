@@ -3,7 +3,8 @@ use crate::internal::*;
 /// Wrapper around irmin trees
 pub struct Tree<'a, T: Contents> {
     pub ptr: *mut IrminTree,
-    pub repo: &'a Repo<T>,
+    pub repo: UntypedRepo<'a>,
+    pub(crate) _t: std::marker::PhantomData<T>,
 }
 
 impl<'a, T: Contents> Drop for Tree<'a, T> {
@@ -24,7 +25,11 @@ impl<'a, T: Contents> Tree<'a, T> {
         unsafe {
             let ptr = irmin_tree_new(repo.ptr);
             check!(repo.ptr, ptr);
-            Ok(Tree { ptr, repo })
+            Ok(Tree {
+                ptr,
+                repo: UntypedRepo::new(repo),
+                _t: std::marker::PhantomData,
+            })
         }
     }
 
@@ -33,7 +38,7 @@ impl<'a, T: Contents> Tree<'a, T> {
         check!(self.repo.ptr, h);
         Ok(Hash {
             ptr: h,
-            repo: UntypedRepo::new(self.repo),
+            repo: self.repo.clone(),
         })
     }
 
@@ -42,7 +47,7 @@ impl<'a, T: Contents> Tree<'a, T> {
         check!(self.repo.ptr, h);
         Ok(KindedKey {
             ptr: h,
-            repo: UntypedRepo::new(self.repo),
+            repo: self.repo.clone(),
         })
     }
 
@@ -51,7 +56,11 @@ impl<'a, T: Contents> Tree<'a, T> {
         if ptr.is_null() {
             return None;
         }
-        Some(Tree { ptr, repo })
+        Some(Tree {
+            ptr,
+            repo: UntypedRepo::new(repo),
+            _t: std::marker::PhantomData,
+        })
     }
 
     pub fn of_key(repo: &'a Repo<T>, k: &KindedKey) -> Option<Tree<'a, T>> {
@@ -59,7 +68,11 @@ impl<'a, T: Contents> Tree<'a, T> {
         if ptr.is_null() {
             return None;
         }
-        Some(Tree { ptr, repo })
+        Some(Tree {
+            ptr,
+            repo: UntypedRepo::new(repo),
+            _t: std::marker::PhantomData,
+        })
     }
 
     /// Update the tree with a value at the specified path
@@ -133,7 +146,8 @@ impl<'a, T: Contents> Tree<'a, T> {
             }
             let x = Tree {
                 ptr,
-                repo: self.repo,
+                repo: self.repo.clone(),
+                _t: std::marker::PhantomData,
             };
             Ok(Some(x))
         }
@@ -154,7 +168,7 @@ impl<'a, T: Contents> Tree<'a, T> {
             }
             dest.push(Path {
                 ptr: path,
-                repo: UntypedRepo::new(&self.repo),
+                repo: self.repo.clone(),
             })
         }
 

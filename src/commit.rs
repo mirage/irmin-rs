@@ -97,6 +97,16 @@ impl<'a> Commit<'a> {
         })
     }
 
+    pub fn tree<T: Contents>(&self) -> Result<Tree<T>, Error> {
+        let ptr = unsafe { irmin_commit_tree(self.repo.ptr, self.ptr) };
+        check!(self.repo.ptr, ptr);
+        Ok(Tree {
+            ptr,
+            repo: self.repo.clone(),
+            _t: std::marker::PhantomData,
+        })
+    }
+
     /// Get commit parents
     pub fn parents(&self) -> Result<Vec<Commit>, Error> {
         let p = unsafe { irmin_commit_parents(self.repo.ptr, self.ptr) };
