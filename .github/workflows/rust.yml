@@ -3,10 +3,10 @@ name: libirmin
 on:
   pull_request:
     branches:
-      - main
+      - master
   push:
     branches:
-      - main
+      - master
 
 jobs:
   rust:
@@ -40,7 +40,6 @@ jobs:
       - run: "opam pin add irmin-http.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
       - run: "opam pin add irmin-graphql.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
       - run: "opam pin add irmin-tezos.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
-      - run: "opam pin add irmin-layers.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
       - run: "opam pin add irmin-unix.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
       - run: "opam pin add libirmin.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
       - run: "opam pin add libirmin.dev git+https://github.com/zshipko/irmin.git#libirmin --no-action"
