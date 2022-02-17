@@ -215,6 +215,45 @@ impl<'a, T: Contents> Store<'a, T> {
 
         Ok(dest)
     }
+
+    pub fn pull(
+        &mut self,
+        remote: &Remote,
+        depth: Option<i32>,
+        info: Option<&Info>,
+    ) -> Result<Commit, Error> {
+        let info = match info {
+            Some(i) => i.ptr as *mut _,
+            None => std::ptr::null_mut(),
+        };
+        let depth = depth.unwrap_or(-1);
+        let c = unsafe { irmin_pull(self.ptr, depth, remote.ptr, info) };
+        check!(self.repo.ptr, c);
+        Ok(Commit {
+            ptr: c,
+            repo: UntypedRepo::new(self.repo),
+        })
+    }
+
+    pub fn fetch(&mut self, remote: &Remote, depth: Option<i32>) -> Result<Commit, Error> {
+        let depth = depth.unwrap_or(-1);
+        let c = unsafe { irmin_fetch(self.ptr, depth, remote.ptr) };
+        check!(self.repo.ptr, c);
+        Ok(Commit {
+            ptr: c,
+            repo: UntypedRepo::new(self.repo),
+        })
+    }
+
+    pub fn push(&mut self, remote: &Remote, depth: Option<i32>) -> Result<Commit, Error> {
+        let depth = depth.unwrap_or(-1);
+        let c = unsafe { irmin_push(self.ptr, depth, remote.ptr) };
+        check!(self.repo.ptr, c);
+        Ok(Commit {
+            ptr: c,
+            repo: UntypedRepo::new(self.repo),
+        })
+    }
 }
 
 impl<'a, T: Contents> Drop for Store<'a, T> {

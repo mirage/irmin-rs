@@ -31,6 +31,7 @@ mod irmin_string;
 mod key;
 mod metadata;
 mod path;
+mod remote;
 mod repo;
 mod store;
 mod tree;
@@ -47,6 +48,7 @@ pub(crate) mod prelude {
     pub use crate::key::{CommitKey, KindedKey};
     pub use crate::metadata::Metadata;
     pub use crate::path::Path;
+    pub use crate::remote::Remote;
     pub use crate::repo::Repo;
     pub use crate::store::Store;
     pub use crate::tree::Tree;
