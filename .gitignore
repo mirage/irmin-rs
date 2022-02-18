@@ -1,5 +1,2 @@
-_build
-.merlin
 Cargo.lock
 target
-test123

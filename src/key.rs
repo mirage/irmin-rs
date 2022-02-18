@@ -1,79 +1,42 @@
-use crate::Type;
-use ocaml_interop::*;
+use crate::internal::*;
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
-pub struct Key(Vec<String>);
+pub struct CommitKey<'a> {
+    pub ptr: *mut IrminCommitKey,
 
-impl Type for Key {
-    fn encode_bin<W: std::io::Write>(&self, dest: &mut W) -> std::io::Result<usize> {
-        self.0.encode_bin(dest)
-    }
+    pub(crate) repo: UntypedRepo<'a>,
+}
 
-    fn decode_bin<R: std::io::Read>(src: &mut R) -> std::io::Result<Self> {
-        let x = Vec::<String>::decode_bin(src)?;
-        Ok(Key(x))
+impl<'a> Drop for CommitKey<'a> {
+    fn drop(&mut self) {
+        unsafe { irmin_commit_key_free(self.ptr) }
     }
 }
 
-unsafe impl FromOCaml<String> for Key {
-    fn from_ocaml(v: OCaml<'_, String>) -> Self {
-        let mut bytes = v.as_bytes();
-        Key::decode_bin(&mut bytes).expect("Invalid key argument passed to Rust")
+impl<'a> CommitKey<'a> {
+    pub fn to_string(&self) -> Result<IrminString, Error> {
+        let t = unsafe { irmin_type_commit_key(self.repo.ptr) };
+        let s = unsafe { irmin_value_to_string(t, self.ptr as *mut _) };
+        unsafe { irmin_type_free(t) }
+        IrminString::wrap(s)
     }
 }
 
-unsafe impl ToOCaml<String> for Key {
-    fn to_ocaml<'a>(&self, rt: &'a mut OCamlRuntime) -> OCaml<'a, String> {
-        let mut data = Vec::new();
-        self.encode_bin(&mut data)
-            .expect("Invalid key argument passed to OCaml");
-        data.to_ocaml(rt)
+pub struct KindedKey<'a> {
+    pub ptr: *mut IrminKindedKey,
+    pub(crate) repo: UntypedRepo<'a>,
+}
+
+impl<'a> Drop for KindedKey<'a> {
+    fn drop(&mut self) {
+        unsafe { irmin_kinded_key_free(self.ptr) }
     }
 }
 
-impl Key {
-    pub fn new<'a>(a: impl AsRef<[&'a str]>) -> Key {
-        Key(a
-            .as_ref()
-            .iter()
-            .filter_map(|x| {
-                if x.is_empty() {
-                    None
-                } else {
-                    Some(x.to_string())
-                }
-            })
-            .collect())
-    }
-
-    pub fn empty() -> Key {
-        Key(vec![])
-    }
-
-    pub fn push(&mut self, p: impl Into<String>) {
-        let p = p.into();
-        if !p.is_empty() {
-            self.0.push(p.into())
-        }
-    }
-
-    pub fn pop(&mut self) -> Option<String> {
-        self.0.pop()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.join("/")
-    }
-
-    pub fn from_string(s: impl AsRef<str>) -> Key {
-        Key::new(s.as_ref().split("/").collect::<Vec<_>>())
+impl<'a> KindedKey<'a> {
+    pub fn to_string(&self) -> Result<IrminString, Error> {
+        let t = unsafe { irmin_type_commit_key(self.repo.ptr) };
+        let s = unsafe { irmin_value_to_string(t, self.ptr as *mut _) };
+        unsafe { irmin_type_free(t) }
+        IrminString::wrap(s)
     }
 }

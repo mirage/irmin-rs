@@ -1,71 +1,41 @@
-use crate::Type;
+use crate::internal::*;
 
-use blake2::Digest;
-
-macro_rules! hash_type {
-    ($x: ident) => {
-        #[derive(Debug, Clone, PartialEq)]
-        pub struct $x(pub Vec<u8>);
-        impl AsRef<[u8]> for $x {
-            fn as_ref(&self) -> &[u8] {
-                self.0.as_ref()
-            }
-        }
-
-        impl Type for $x {
-            fn encode_bin<W: std::io::Write>(&self, w: &mut W) -> std::io::Result<usize> {
-                w.write_all(&self.0)?;
-                Ok(Self::size())
-            }
-
-            fn decode_bin<R: std::io::Read>(r: &mut R) -> std::io::Result<Self> {
-                let mut data = vec![0u8; Self::size()];
-                r.read_exact(data.as_mut_slice())?;
-                Ok($x(data))
-            }
-        }
-    };
+/// Wrapper around Irmin hash type
+pub struct Hash<'a> {
+    pub ptr: *mut IrminHash,
+    pub(crate) repo: UntypedRepo<'a>,
 }
 
-hash_type!(Blake2b);
-hash_type!(Sha1);
-
-pub trait Hash: Type + Clone + Sized + PartialEq {
-    fn size() -> usize;
-
-    fn name() -> &'static str;
-
-    fn hash(x: impl AsRef<[u8]>) -> Self;
-}
-
-impl Hash for Blake2b {
-    fn size() -> usize {
-        64
-    }
-
-    fn name() -> &'static str {
-        "blake2b"
-    }
-
-    fn hash(s: impl AsRef<[u8]>) -> Self {
-        let digest = blake2::Blake2b::digest(s.as_ref());
-        Blake2b(digest.as_slice().to_vec())
+impl<'a> PartialEq for Hash<'a> {
+    fn eq(&self, other: &Hash<'a>) -> bool {
+        unsafe { irmin_hash_equal(self.repo.ptr, self.ptr, other.ptr) }
     }
 }
 
-impl Hash for Sha1 {
-    fn size() -> usize {
-        20
+impl<'a> Hash<'a> {
+    /// Convert from string to Hash
+    pub fn of_string<T: Contents>(
+        repo: &'a Repo<T>,
+        s: impl AsRef<str>,
+    ) -> Result<Hash<'a>, Error> {
+        let s = s.as_ref();
+        let ptr = unsafe { irmin_hash_of_string(repo.ptr, s.as_ptr() as *mut _, s.len() as i64) };
+        check!(repo.ptr, ptr);
+        Ok(Hash {
+            ptr,
+            repo: UntypedRepo::new(repo),
+        })
     }
 
-    fn name() -> &'static str {
-        "sha1"
+    /// Convert from Hash to String
+    pub fn to_string<T: Contents>(&self) -> Result<String, Error> {
+        let s = unsafe { irmin_hash_to_string(self.repo.ptr, self.ptr) };
+        IrminString::wrap(s).map(|x| x.into())
     }
+}
 
-    fn hash(s: impl AsRef<[u8]>) -> Self {
-        let mut hash = sha1::Sha1::default();
-        hash.update(s.as_ref());
-        let digest = hash.digest();
-        Sha1(digest.bytes().to_vec())
+impl<'a> Drop for Hash<'a> {
+    fn drop(&mut self) {
+        unsafe { irmin_hash_free(self.ptr) }
     }
 }
