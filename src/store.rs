@@ -66,10 +66,10 @@ impl<'a, T: Contents> Store<'a, T> {
                 self.ptr,
                 path.ptr,
                 old.map(|x| x.ptr as *mut _)
-                    .unwrap_or_else(|| std::ptr::null_mut()),
+                    .unwrap_or_else(std::ptr::null_mut),
                 value
                     .map(|x| x.ptr as *mut _)
-                    .unwrap_or_else(|| std::ptr::null_mut()),
+                    .unwrap_or_else(std::ptr::null_mut),
                 info.ptr,
             );
             check!(self.repo.ptr, r, false);
@@ -98,8 +98,8 @@ impl<'a, T: Contents> Store<'a, T> {
             let r = irmin_test_and_set_tree(
                 self.ptr,
                 path.ptr,
-                old.map(|x| x.ptr).unwrap_or_else(|| std::ptr::null_mut()),
-                tree.map(|x| x.ptr).unwrap_or_else(|| std::ptr::null_mut()),
+                old.map(|x| x.ptr).unwrap_or_else(std::ptr::null_mut),
+                tree.map(|x| x.ptr).unwrap_or_else(std::ptr::null_mut),
                 info.ptr,
             );
             check!(self.repo.ptr, r, false);
@@ -155,7 +155,7 @@ impl<'a, T: Contents> Store<'a, T> {
         check_opt!(self.repo.ptr, ptr);
         Ok(Some(Commit {
             ptr,
-            repo: UntypedRepo::new(&self.repo),
+            repo: UntypedRepo::new(self.repo),
         }))
     }
 

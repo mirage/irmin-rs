@@ -26,7 +26,7 @@ impl<'a> Commit<'a> {
         tree: &Tree<T>,
         info: Info,
     ) -> Result<Commit<'a>, Error> {
-        let parents: Vec<_> = parents.as_ref().into_iter().map(|x| x.ptr).collect();
+        let parents: Vec<_> = parents.as_ref().iter().map(|x| x.ptr).collect();
         let ptr = unsafe {
             irmin_commit_new(
                 repo.ptr,

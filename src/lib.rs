@@ -4,7 +4,7 @@ pub fn set_log_level(s: Option<&str>) -> bool {
     unsafe {
         bindings::irmin_log_level(
             s.map(|x| x.as_ptr() as *mut _)
-                .unwrap_or_else(|| std::ptr::null_mut()),
+                .unwrap_or_else(std::ptr::null_mut),
         )
     }
 }
