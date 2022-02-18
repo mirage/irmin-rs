@@ -46,14 +46,3 @@ jobs:
       - run: opam install libirmin
       - run: opam exec -- make test
 
-      - name: Build Documentation
-        run: opam exec -- cargo doc --all
-
-      - name: Deploy Docs
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./target/doc
-          force_orphan: true
-
