@@ -1,13 +1,11 @@
 use std::path::PathBuf;
 
 fn find_path<E: std::error::Error>(paths: Vec<Result<PathBuf, E>>) -> (PathBuf, PathBuf) {
-    for path in paths {
-        if let Ok(path) = path {
-            let lib = path.join("lib").join("libirmin.so");
-            let header = path.join("include").join("irmin.h");
-            if lib.exists() && header.exists() {
-                return (lib, header);
-            }
+    for path in paths.into_iter().flatten() {
+        let lib = path.join("lib").join("libirmin.so");
+        let header = path.join("include").join("irmin.h");
+        if lib.exists() && header.exists() {
+            return (lib, header);
         }
     }
 

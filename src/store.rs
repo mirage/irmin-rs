@@ -110,10 +110,7 @@ impl<'a, T: Contents> Store<'a, T> {
     /// Find the value associated with the given path
     pub fn find(&self, path: &Path) -> Result<Option<T>, Error> {
         let r = unsafe { irmin_find(self.ptr, path.ptr) };
-        check!(self.repo.ptr, r);
-        if r.is_null() {
-            return Ok(None);
-        }
+        check_opt!(self.repo.ptr, r);
         let ty = T::ty()?;
         let v = Value {
             ptr: r as *mut _,
@@ -127,10 +124,7 @@ impl<'a, T: Contents> Store<'a, T> {
     pub fn find_tree(&self, path: &Path) -> Result<Option<Tree<T>>, Error> {
         unsafe {
             let ptr = irmin_find_tree(self.ptr, path.ptr);
-            check!(self.repo.ptr, ptr);
-            if ptr.is_null() {
-                return Ok(None);
-            }
+            check_opt!(self.repo.ptr, ptr);
             let x = Tree {
                 ptr,
                 repo: UntypedRepo::new(self.repo),
@@ -156,16 +150,13 @@ impl<'a, T: Contents> Store<'a, T> {
     }
 
     /// Get current head commit
-    pub fn head(&self) -> Option<Commit<'a>> {
+    pub fn head(&self) -> Result<Option<Commit<'a>>, Error> {
         let ptr = unsafe { irmin_get_head(self.ptr) };
-        if ptr.is_null() {
-            return None;
-        }
-
-        Some(Commit {
+        check_opt!(self.repo.ptr, ptr);
+        Ok(Some(Commit {
             ptr,
             repo: UntypedRepo::new(&self.repo),
-        })
+        }))
     }
 
     /// Set head commit
@@ -179,19 +170,29 @@ impl<'a, T: Contents> Store<'a, T> {
     }
 
     /// Merge with another branch
-    pub fn merge_with_branch(&mut self, branch: impl AsRef<str>, info: Info) -> bool {
+    pub fn merge_with_branch(
+        &mut self,
+        branch: impl AsRef<str>,
+        info: Info,
+    ) -> Result<bool, Error> {
         let branch = cstring(branch);
-        unsafe { irmin_merge_with_branch(self.ptr, branch.as_ptr() as *mut _, info.ptr) }
+        let r = unsafe { irmin_merge_with_branch(self.ptr, branch.as_ptr() as *mut _, info.ptr) };
+        check!(self.repo.ptr, r, false);
+        Ok(r)
     }
 
     /// Merge with another commit
-    pub fn merge_with_commit(&mut self, commit: &Commit, info: Info) -> bool {
-        unsafe { irmin_merge_with_commit(self.ptr, commit.ptr, info.ptr) }
+    pub fn merge_with_commit(&mut self, commit: &Commit, info: Info) -> Result<bool, Error> {
+        let r = unsafe { irmin_merge_with_commit(self.ptr, commit.ptr, info.ptr) };
+        check!(self.repo.ptr, r, false);
+        Ok(r)
     }
 
     /// Merge with another store
-    pub fn merge(&mut self, store: &Store<T>, info: Info) -> bool {
-        unsafe { irmin_merge_into(self.ptr, store.ptr, info.ptr) }
+    pub fn merge(&mut self, store: &Store<T>, info: Info) -> Result<bool, Error> {
+        let r = unsafe { irmin_merge_into(self.ptr, store.ptr, info.ptr) };
+        check!(self.repo.ptr, r, false);
+        Ok(r)
     }
 
     /// List paths
@@ -207,7 +208,7 @@ impl<'a, T: Contents> Store<'a, T> {
             }
             dest.push(Path {
                 ptr: path,
-                repo: UntypedRepo::new(&self.repo),
+                repo: UntypedRepo::new(self.repo),
             })
         }
 
@@ -216,6 +217,8 @@ impl<'a, T: Contents> Store<'a, T> {
         Ok(dest)
     }
 
+    /// Pull from a remote respository, if the `info` parameter is set then
+    /// a merge commit will be made
     pub fn pull(
         &mut self,
         remote: &Remote,
@@ -235,6 +238,7 @@ impl<'a, T: Contents> Store<'a, T> {
         })
     }
 
+    /// Fetch data from a remote repository
     pub fn fetch(&mut self, remote: &Remote, depth: Option<i32>) -> Result<Commit, Error> {
         let depth = depth.unwrap_or(-1);
         let c = unsafe { irmin_fetch(self.ptr, depth, remote.ptr) };
@@ -245,6 +249,7 @@ impl<'a, T: Contents> Store<'a, T> {
         })
     }
 
+    /// Push to a remote repository
     pub fn push(&mut self, remote: &Remote, depth: Option<i32>) -> Result<Commit, Error> {
         let depth = depth.unwrap_or(-1);
         let c = unsafe { irmin_push(self.ptr, depth, remote.ptr) };

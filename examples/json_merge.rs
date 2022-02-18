@@ -15,16 +15,16 @@ fn main() -> Result<(), Error> {
 
     // Store a value in the main branch
     let a = json!({
-        "x": 1,
-        "y": 2,
-        "z": 3,
+        "x": 1i32,
+        "y": 2i32,
+        "z": 3i32,
     });
     store.set(
         &path,
         a.as_object().unwrap(),
         Info::new(&repo, "example", "initial commit")?,
     )?;
-    let head = store.head().unwrap();
+    let head = store.head()?.unwrap();
 
     // Crate `branch1` from the latest commit on `main`
     let mut branch1 = Store::of_branch(&repo, "branch1")?;
@@ -36,9 +36,9 @@ fn main() -> Result<(), Error> {
 
     // Set `x` to 0 and store in `branch1`
     let b = json!({
-        "x": 0,
-        "y": 2,
-        "z": 3,
+        "x": 0i32,
+        "y": 2i32,
+        "z": 3i32,
     });
     branch1.set(
         &path,
@@ -48,9 +48,9 @@ fn main() -> Result<(), Error> {
 
     // Set `y` to 0 and store in `branch2`
     let c = json!({
-        "x": 1,
-        "y": 0,
-        "z": 3,
+        "x": 1i32,
+        "y": 0i32,
+        "z": 3i32,
     });
     branch2.set(
         &path,
@@ -59,10 +59,10 @@ fn main() -> Result<(), Error> {
     )?;
 
     // Merge `branch1` into `main`
-    assert!(store.merge(&branch1, repo.info("example", "merge branch1")?));
+    assert!(store.merge(&branch1, repo.info("example", "merge branch1")?)?);
 
     // Merge `branch2` into `main`
-    assert!(store.merge(&branch2, repo.info("example", "merge branch2")?));
+    assert!(store.merge(&branch2, repo.info("example", "merge branch2")?)?);
 
     // Check that the contents have been merged correctly
     let v = store.find(&path)?.unwrap();

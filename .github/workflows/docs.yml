@@ -1,9 +1,6 @@
 name: libirmin
 
 on:
-  pull_request:
-    branches:
-      - master
   push:
     branches:
       - master
@@ -44,11 +41,7 @@ jobs:
       - run: "opam pin add libirmin.dev git+https://github.com/mirage/irmin.git --no-action"
       - run: "opam pin add libirmin.dev git+https://github.com/mirage/irmin.git --no-action"
       - run: opam install libirmin
-      - run: opam exec -- make test
-
-      - name: Build Documentation
         run: opam exec -- cargo doc --all
-
       - name: Deploy Docs
         uses: peaceiris/actions-gh-pages@v3
         with:

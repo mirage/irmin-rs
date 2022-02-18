@@ -24,6 +24,7 @@ impl IrminString {
         Ok(IrminString(ptr, len as usize))
     }
 
+    /// Create a new IrminString from bytes
     pub fn new(s: impl AsRef<[u8]>) -> Result<IrminString, Error> {
         let len = s.as_ref().len();
         let s = unsafe { irmin_string_new(s.as_ref().as_ptr() as *mut _, len as i64) };
@@ -33,10 +34,12 @@ impl IrminString {
         Ok(IrminString(s, len))
     }
 
+    /// Access IrminString as str
     pub fn as_str(&self) -> &str {
         self.as_ref()
     }
 
+    /// Access bytes of IrminString
     pub fn as_slice(&self) -> &[u8] {
         self.as_ref()
     }

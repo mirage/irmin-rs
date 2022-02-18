@@ -1,11 +1,13 @@
 [package]
 name = "irmin"
-version = "0.1.0"
+version = "0.1.0-beta"
 authors = ["zach <zachshipko@gmail.com>"]
 edition = "2021"
-include = ["libirmin.so", "src/*.rs", "build.rs"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+repository = "https://github.com/mirage/irmin"
+documentation = "https://mirage.github.io/irmin-rs/irmin"
+description = "Irmin bindings for rust"
+keywords = ["irmin", "database", "git"]
+license = "ISC"
 
 [build-dependencies]
 bindgen = "0.59"

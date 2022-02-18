@@ -13,6 +13,7 @@ impl<'a> Drop for Metadata<'a> {
 }
 
 impl<'a> Metadata<'a> {
+    /// Default metadata value for the given repo
     pub fn default<T: Contents>(repo: &'a Repo<T>) -> Result<Metadata<'a>, Error> {
         let m = unsafe { irmin_metadata_default(repo.ptr) };
         check!(repo.ptr, m);

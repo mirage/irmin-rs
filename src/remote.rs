@@ -7,6 +7,7 @@ pub struct Remote<'a> {
 }
 
 impl<'a> Remote<'a> {
+    /// Create `Remote` from an existing store
     pub fn store<T: Contents>(store: &'a Store<T>) -> Result<Remote<'a>, Error> {
         let ptr = unsafe { irmin_remote_store(store.ptr) };
         check!(store.repo.ptr, ptr);
@@ -16,6 +17,7 @@ impl<'a> Remote<'a> {
         })
     }
 
+    /// Remote from URL
     pub fn url<T: Contents>(repo: &'a Repo<T>, s: impl AsRef<str>) -> Result<Remote<'a>, Error> {
         let mut s = cstring(s.as_ref());
         let ptr = unsafe { irmin_remote(repo.ptr, s.as_mut_ptr() as *mut _) };
@@ -26,6 +28,7 @@ impl<'a> Remote<'a> {
         })
     }
 
+    /// Remote from URL with basic auth
     pub fn url_with_auth<T: Contents>(
         repo: &'a Repo<T>,
         s: impl AsRef<str>,

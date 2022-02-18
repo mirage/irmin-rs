@@ -22,4 +22,16 @@ macro_rules! check {
     };
 }
 
+#[macro_export]
+macro_rules! check_opt {
+    ($r:expr, $x:expr) => {
+        if $x.is_null() {
+            match crate::error_msg($r) {
+                Some(e) => return Err(Error::Exc(e)),
+                None => return Ok(None),
+            }
+        }
+    };
+}
+
 include!(concat!(env!("OUT_DIR"), "/c.rs"));

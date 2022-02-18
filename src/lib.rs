@@ -100,13 +100,13 @@ mod tests {
         });
         assert!(store.set(&path, &value, info)?);
 
-        let head = store.head().unwrap();
+        let head = store.head()?.unwrap();
         assert!(head.parents()?.len() == 0);
 
         let s = store.find(&path)?;
         assert!(s.unwrap() == value);
 
-        let path1 = path.parent().unwrap();
+        let path1 = path.parent()?.unwrap();
         assert!(store.mem_tree(&path1));
 
         let x = store.find_tree(&path1)?;
@@ -125,7 +125,7 @@ mod tests {
         let info = Info::new(&repo, "irmin", "set")?;
         assert!(store.set(&path, &value1, info)?);
 
-        let head1 = store.head().unwrap();
+        let head1 = store.head()?.unwrap();
         assert!(head1.parents()?.len() == 1);
         assert!(head1.parents()?[0] == head);
 
