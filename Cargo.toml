@@ -15,3 +15,9 @@ bindgen = "0.59"
 [dependencies]
 serde_json = "1"
 serde = {version = "1", features = ["derive"]}
+
+[features]
+docs = []
+
+[package.metadata.docs.rs]
+features = [ "docs" ]

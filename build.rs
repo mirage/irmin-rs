@@ -1,6 +1,10 @@
 use std::path::PathBuf;
 
 fn find_path<E: std::error::Error>(paths: Vec<Result<PathBuf, E>>) -> (PathBuf, PathBuf) {
+    if cfg!(feature = "docs") {
+        return (PathBuf::new(), PathBuf::from("docs/irmin.h"));
+    }
+
     for path in paths.into_iter().flatten() {
         let lib = path.join("lib").join("libirmin.so");
         let header = path.join("include").join("irmin.h");
@@ -31,16 +35,18 @@ fn main() {
 
     println!("cargo:rerun-if-changed={}", header.display());
 
-    println!(
-        "cargo:rustc-link-arg=-Wl,-rpath,{}",
-        lib.parent().unwrap().display()
-    );
-    println!(
-        "cargo:rustc-link-search={}",
-        lib.parent().unwrap().display()
-    );
-    println!("cargo:rustc-link-lib=irmin");
-    println!("cargo:rerun-if-changed={}", header.display());
+    if cfg!(not(feature = "docs")) {
+        println!(
+            "cargo:rustc-link-arg=-Wl,-rpath,{}",
+            lib.parent().unwrap().display()
+        );
+        println!(
+            "cargo:rustc-link-search={}",
+            lib.parent().unwrap().display()
+        );
+        println!("cargo:rustc-link-lib=irmin");
+        println!("cargo:rerun-if-changed={}", header.display());
+    }
 
     let bindings = bindgen::builder()
         .header(header.to_str().unwrap())
