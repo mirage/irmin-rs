@@ -56,15 +56,13 @@ impl<'a> Path<'a> {
     }
 
     /// Get path's parent path
-    pub fn parent(&self) -> Option<Path<'a>> {
+    pub fn parent(&self) -> Result<Option<Path<'a>>, Error> {
         let ptr = unsafe { irmin_path_parent(self.repo.ptr, self.ptr) };
-        if ptr.is_null() {
-            return None;
-        }
-        Some(Path {
+        check_opt!(self.repo.ptr, ptr);
+        Ok(Some(Path {
             ptr,
             repo: self.repo.clone(),
-        })
+        }))
     }
 
     /// Append to a path and return a new path

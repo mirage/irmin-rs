@@ -33,6 +33,7 @@ impl<'a, T: Contents> Tree<'a, T> {
         }
     }
 
+    /// Compute the hash of a tree
     pub fn hash(&self) -> Result<Hash, Error> {
         let h = unsafe { irmin_tree_hash(self.repo.ptr, self.ptr) };
         check!(self.repo.ptr, h);
@@ -42,37 +43,34 @@ impl<'a, T: Contents> Tree<'a, T> {
         })
     }
 
-    pub fn key(&self) -> Result<KindedKey, Error> {
+    ///
+    pub fn key(&self) -> Result<Option<KindedKey>, Error> {
         let h = unsafe { irmin_tree_key(self.repo.ptr, self.ptr) };
-        check!(self.repo.ptr, h);
-        Ok(KindedKey {
+        check_opt!(self.repo.ptr, h);
+        Ok(Some(KindedKey {
             ptr: h,
             repo: self.repo.clone(),
-        })
+        }))
     }
 
-    pub fn of_hash(repo: &'a Repo<T>, h: &Hash) -> Option<Tree<'a, T>> {
+    pub fn of_hash(repo: &'a Repo<T>, h: &Hash) -> Result<Option<Tree<'a, T>>, Error> {
         let ptr = unsafe { irmin_tree_of_hash(repo.ptr, h.ptr) };
-        if ptr.is_null() {
-            return None;
-        }
-        Some(Tree {
+        check_opt!(repo.ptr, ptr);
+        Ok(Some(Tree {
             ptr,
             repo: UntypedRepo::new(repo),
             _t: std::marker::PhantomData,
-        })
+        }))
     }
 
-    pub fn of_key(repo: &'a Repo<T>, k: &KindedKey) -> Option<Tree<'a, T>> {
+    pub fn of_key(repo: &'a Repo<T>, k: &KindedKey) -> Result<Option<Tree<'a, T>>, Error> {
         let ptr = unsafe { irmin_tree_of_key(repo.ptr, k.ptr) };
-        if ptr.is_null() {
-            return None;
-        }
-        Some(Tree {
+        check_opt!(repo.ptr, ptr);
+        Ok(Some(Tree {
             ptr,
             repo: UntypedRepo::new(repo),
             _t: std::marker::PhantomData,
-        })
+        }))
     }
 
     /// Update the tree with a value at the specified path
@@ -140,10 +138,7 @@ impl<'a, T: Contents> Tree<'a, T> {
     pub fn find_tree(&self, path: &Path) -> Result<Option<Tree<T>>, Error> {
         unsafe {
             let ptr = irmin_tree_find_tree(self.repo.ptr, self.ptr, path.ptr);
-            check!(self.repo.ptr, ptr);
-            if ptr.is_null() {
-                return Ok(None);
-            }
+            check_opt!(self.repo.ptr, ptr);
             let x = Tree {
                 ptr,
                 repo: self.repo.clone(),
@@ -156,9 +151,7 @@ impl<'a, T: Contents> Tree<'a, T> {
     /// List paths
     pub fn list(&self, path: &Path) -> Result<Vec<Path>, Error> {
         let p = unsafe { irmin_tree_list(self.repo.ptr, self.ptr, path.ptr) };
-        if p.is_null() {
-            return Err(Error::NullPtr);
-        }
+        check!(self.repo.ptr, p);
         let len = unsafe { irmin_path_array_length(self.repo.ptr, p) };
         let mut dest = Vec::new();
         for i in 0..len {

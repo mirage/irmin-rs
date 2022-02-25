@@ -1,17 +1,19 @@
 use std::path::PathBuf;
 
 fn find_path<E: std::error::Error>(paths: Vec<Result<PathBuf, E>>) -> (PathBuf, PathBuf) {
-    for path in paths {
-        if let Ok(path) = path {
-            let lib = path.join("lib").join("libirmin.so");
-            let header = path.join("include").join("irmin.h");
-            if lib.exists() && header.exists() {
-                return (lib, header);
-            }
+    if cfg!(feature = "docs") {
+        return (PathBuf::new(), PathBuf::from("docs/irmin.h"));
+    }
+
+    for path in paths.into_iter().flatten() {
+        let lib = path.join("lib").join("libirmin.so");
+        let header = path.join("include").join("irmin.h");
+        if lib.exists() && header.exists() {
+            return (lib, header);
         }
     }
 
-    panic!("Unable to locate libirmin installation, try setting LIBIRMIN_PREFIX")
+    panic!("Unable to locate libirmin installation, try `opam install libirmin` or setting LIBIRMIN_PREFIX")
 }
 
 fn main() {
@@ -33,16 +35,18 @@ fn main() {
 
     println!("cargo:rerun-if-changed={}", header.display());
 
-    println!(
-        "cargo:rustc-link-arg=-Wl,-rpath,{}",
-        lib.parent().unwrap().display()
-    );
-    println!(
-        "cargo:rustc-link-search={}",
-        lib.parent().unwrap().display()
-    );
-    println!("cargo:rustc-link-lib=irmin");
-    println!("cargo:rerun-if-changed={}", header.display());
+    if cfg!(not(feature = "docs")) {
+        println!(
+            "cargo:rustc-link-arg=-Wl,-rpath,{}",
+            lib.parent().unwrap().display()
+        );
+        println!(
+            "cargo:rustc-link-search={}",
+            lib.parent().unwrap().display()
+        );
+        println!("cargo:rustc-link-lib=irmin");
+        println!("cargo:rerun-if-changed={}", header.display());
+    }
 
     let bindings = bindgen::builder()
         .header(header.to_str().unwrap())

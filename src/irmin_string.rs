@@ -24,6 +24,7 @@ impl IrminString {
         Ok(IrminString(ptr, len as usize))
     }
 
+    /// Create a new IrminString from bytes
     pub fn new(s: impl AsRef<[u8]>) -> Result<IrminString, Error> {
         let len = s.as_ref().len();
         let s = unsafe { irmin_string_new(s.as_ref().as_ptr() as *mut _, len as i64) };
@@ -33,10 +34,12 @@ impl IrminString {
         Ok(IrminString(s, len))
     }
 
+    /// Access IrminString as str
     pub fn as_str(&self) -> &str {
         self.as_ref()
     }
 
+    /// Access bytes of IrminString
     pub fn as_slice(&self) -> &[u8] {
         self.as_ref()
     }
@@ -77,14 +80,14 @@ impl AsRef<std::ffi::CStr> for IrminString {
     }
 }
 
-impl Into<String> for IrminString {
-    fn into(self) -> String {
-        self.as_str().to_string()
+impl From<IrminString> for String {
+    fn from(x: IrminString) -> String {
+        x.as_str().to_string()
     }
 }
 
-impl Into<Vec<u8>> for IrminString {
-    fn into(self) -> Vec<u8> {
-        self.as_slice().into()
+impl From<IrminString> for Vec<u8> {
+    fn from(x: IrminString) -> Vec<u8> {
+        x.as_slice().into()
     }
 }

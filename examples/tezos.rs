@@ -32,7 +32,7 @@ fn main() -> Result<(), Error> {
 
     // Resolve commit
     let hash = Hash::of_string(&repo, &args[2])?;
-    let commit = Commit::of_hash(&repo, &hash).expect("Commit not found");
+    let commit = Commit::of_hash(&repo, &hash)?.expect("Commit not found");
 
     // Open the store
     let store = Store::of_commit(&repo, &commit)?;

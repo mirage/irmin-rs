@@ -13,6 +13,7 @@ impl<'a> Drop for CommitKey<'a> {
 }
 
 impl<'a> CommitKey<'a> {
+    /// Convert CommitKey to string representation using `Irmin.Type.to_string`
     pub fn to_string(&self) -> Result<IrminString, Error> {
         let t = unsafe { irmin_type_commit_key(self.repo.ptr) };
         let s = unsafe { irmin_value_to_string(t, self.ptr as *mut _) };
@@ -33,6 +34,7 @@ impl<'a> Drop for KindedKey<'a> {
 }
 
 impl<'a> KindedKey<'a> {
+    /// Convert KindedKey to string representation using `Irmin.Type.to_string`
     pub fn to_string(&self) -> Result<IrminString, Error> {
         let t = unsafe { irmin_type_commit_key(self.repo.ptr) };
         let s = unsafe { irmin_value_to_string(t, self.ptr as *mut _) };

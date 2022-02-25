@@ -26,7 +26,7 @@ impl<'a> Commit<'a> {
         tree: &Tree<T>,
         info: Info,
     ) -> Result<Commit<'a>, Error> {
-        let parents: Vec<_> = parents.as_ref().into_iter().map(|x| x.ptr).collect();
+        let parents: Vec<_> = parents.as_ref().iter().map(|x| x.ptr).collect();
         let ptr = unsafe {
             irmin_commit_new(
                 repo.ptr,
@@ -44,15 +44,16 @@ impl<'a> Commit<'a> {
     }
 
     /// Find the commit associated with the given hash
-    pub fn of_hash<T: Contents>(repo: &'a Repo<T>, hash: &Hash) -> Option<Commit<'a>> {
+    pub fn of_hash<T: Contents>(
+        repo: &'a Repo<T>,
+        hash: &Hash,
+    ) -> Result<Option<Commit<'a>>, Error> {
         let ptr = unsafe { irmin_commit_of_hash(repo.ptr, hash.ptr) };
-        if ptr.is_null() {
-            return None;
-        }
-        Some(Commit {
+        check_opt!(repo.ptr, ptr);
+        Ok(Some(Commit {
             ptr,
             repo: UntypedRepo::new(repo),
-        })
+        }))
     }
 
     /// Get the hash associated with a commit
@@ -66,15 +67,16 @@ impl<'a> Commit<'a> {
     }
 
     /// Find the commit associated with the given key
-    pub fn of_key<T: Contents>(repo: &'a Repo<T>, key: &CommitKey) -> Option<Commit<'a>> {
+    pub fn of_key<T: Contents>(
+        repo: &'a Repo<T>,
+        key: &CommitKey,
+    ) -> Result<Option<Commit<'a>>, Error> {
         let ptr = unsafe { irmin_commit_of_key(repo.ptr, key.ptr) };
-        if ptr.is_null() {
-            return None;
-        }
-        Some(Commit {
+        check_opt!(repo.ptr, ptr);
+        Ok(Some(Commit {
             ptr,
             repo: UntypedRepo::new(repo),
-        })
+        }))
     }
 
     /// Get the key associated with a commit
