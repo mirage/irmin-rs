@@ -1,6 +1,6 @@
 [package]
 name = "irmin"
-version = "0.1.0-beta"
+version = "0.3.1-beta"
 authors = ["zach <zachshipko@gmail.com>"]
 edition = "2021"
 repository = "https://github.com/mirage/irmin"
