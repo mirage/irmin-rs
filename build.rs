@@ -9,7 +9,7 @@ fn find_path<E: std::error::Error>(paths: Vec<Result<PathBuf, E>>) -> (PathBuf, 
         }
     }
 
-    panic!("Unable to locate libirmin installation, try setting LIBIRMIN_PREFIX")
+    panic!("Unable to locate libirmin installation, try `opam install libirmin` or setting LIBIRMIN_PREFIX")
 }
 
 fn main() {
