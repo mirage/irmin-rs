@@ -1,7 +1,7 @@
 # irmin-rs
 
-<a href="https://crates.io/crates/ocaml">
-    <img src="https://img.shields.io/crates/v/ocaml.svg">
+<a href="https://crates.io/crates/irmin">
+    <img src="https://img.shields.io/crates/v/irmin.svg">
 </a>
 
 [irmin](https://irmin.org) bindings for Rust
