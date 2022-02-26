@@ -8,6 +8,7 @@ documentation = "https://mirage.github.io/irmin-rs/irmin"
 description = "Irmin bindings for rust"
 keywords = ["irmin", "database", "git"]
 license = "ISC"
+documentation = "https://docs.rs/irmin"
 
 [build-dependencies]
 bindgen = "0.59"
