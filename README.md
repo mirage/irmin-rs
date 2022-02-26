@@ -1,6 +1,12 @@
 # irmin-rs
 
+<a href="https://crates.io/crates/ocaml">
+    <img src="https://img.shields.io/crates/v/ocaml.svg">
+</a>
+
 [irmin](https://irmin.org) bindings for Rust
+
+[Documentation](https://docs.rs/irmin)
 
 This crate enables you to call directly into irmin from your Rust application and
 can be used to open an existing irmin store from Rust that may have been created
