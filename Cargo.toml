@@ -10,7 +10,7 @@ license = "ISC"
 documentation = "https://docs.rs/irmin"
 
 [build-dependencies]
-bindgen = "0.60"
+bindgen = "0.61"
 
 [dependencies]
 serde_json = "1"
