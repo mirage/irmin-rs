@@ -85,8 +85,14 @@ impl From<serde_json::Error> for Error {
 #[cfg(test)]
 mod tests {
     use crate::*;
+
+    extern "C" {
+        fn irmin_init();
+    }
+
     #[test]
     fn test_store() -> Result<(), Error> {
+        unsafe { irmin_init() };
         let config = Config::<serde_json::Value>::git_mem()?;
         let repo = Repo::new(config)?;
         let mut store = Store::new(&repo)?;
@@ -142,6 +148,7 @@ mod tests {
 
     #[test]
     fn test_tree() -> Result<(), Error> {
+        unsafe { irmin_init() };
         let config = Config::<String>::git_mem()?;
         let repo = Repo::new(config)?;
 
@@ -159,6 +166,7 @@ mod tests {
 
     #[test]
     fn test_pull() -> Result<(), Error> {
+        unsafe { irmin_init() };
         let _ = std::fs::remove_dir_all("/tmp/irmin-rs-test");
         let mut config = Config::<String>::git()?;
         config.set_root("/tmp/irmin-rs-test");
